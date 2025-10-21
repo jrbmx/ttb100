@@ -11,7 +11,6 @@ const swaggerDocumentation = require('./swagger.json');
 // Rutas
 const datosRoutes      = require('./routes/datos');
 const cuidadoresRoutes = require('./routes/cuidadores');
-const ttgoRoutes       = require('./routes/ttgo');
 const pacientesRoutes  = require('./routes/pacientes');
 const geocercasRoutes = require('./routes/geocercas');
 const app = express();
@@ -54,11 +53,8 @@ mongoose.connect(process.env.MONGO_URI)
 app.use('/api/doc', swaggerUI.serve, swaggerUI.setup(swaggerDocumentation));
 app.use('/api/datos', datosRoutes);
 app.use('/api/cuidadores', cuidadoresRoutes);
-app.use('/api/ttgo', ttgoRoutes);
 app.use('/api/pacientes', pacientesRoutes);
 app.use('/api/geocercas', geocercasRoutes); 
-app.use('/api/geocercas', require('./routes/geocercas'));
-
 
 // ---------- Arranque ----------
 const PORT = process.env.PORT || 3000;
