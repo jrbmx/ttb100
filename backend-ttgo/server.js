@@ -57,6 +57,8 @@ app.use('/api/cuidadores', cuidadoresRoutes);
 app.use('/api/ttgo', ttgoRoutes);
 app.use('/api/pacientes', pacientesRoutes);
 app.use('/api/geocercas', geocercasRoutes); 
+app.use('/api/geocercas', require('./routes/geocercas'));
+
 
 // ---------- Arranque ----------
 const PORT = process.env.PORT || 3000;

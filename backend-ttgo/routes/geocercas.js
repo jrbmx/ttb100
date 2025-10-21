@@ -5,13 +5,15 @@ const Geocerca = require('../models/Geocerca');
 const Paciente = require('../models/Paciente');
 const auth     = require('../middleware/auth');
 
-// POST /api/geocercas  { pacienteId, coords: [[lat,lng], ...] }
+// Crea una geocerca nueva
 router.post('/', auth, async (req, res) => {
   try {
     const { pacienteId, coords } = req.body;
     if (!pacienteId || !Array.isArray(coords) || coords.length < 3) {
       return res.status(400).json({ mensaje: 'Datos inválidos' });
     }
+
+    // Valida que el paciente pertenezca al cuidador del token
     const pac = await Paciente.findOne({ _id: pacienteId, cuidador: req.user.id });
     if (!pac) return res.status(404).json({ mensaje: 'Paciente no encontrado' });
 
@@ -20,6 +22,7 @@ router.post('/', auth, async (req, res) => {
       cuidador: req.user.id,
       coords: coords.map(([lat, lng]) => ({ lat, lng })),
     });
+
     res.json(doc);
   } catch (e) {
     console.error('geocerca POST:', e);
@@ -27,12 +30,12 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// GET /api/geocercas/:pacienteId -> array de geocercas
+// Lista TODAS las geocercas del paciente
 router.get('/:pacienteId', auth, async (req, res) => {
   try {
     const { pacienteId } = req.params;
-    const docs = await Geocerca.find({ paciente: pacienteId, cuidador: req.user.id }).sort({ createdAt: -1 });
-    res.json(docs);
+    const docs = await Geocerca.find({ paciente: pacienteId, cuidador: req.user.id }).sort({ createdAt: 1 });
+    res.json(docs); // <- array
   } catch (e) {
     console.error('geocerca GET:', e);
     res.status(500).json({ mensaje: 'Error del servidor' });
