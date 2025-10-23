@@ -8,10 +8,11 @@ import AltaPacienteModal from "./components/AltaPacienteModal";
 import { listarPacientes } from "./services/pacientes";
 
 // === NUEVO: servicios de geocercas ===
-import { crearGeocerca, listarGeocercas } from "./services/geocercas";
+import { listarGeocercas } from "./services/geocercas";
 
 // === NUEVO: modal de geocercas ===
 import GeocerceModal from './components/GeocerceModal.jsx';
+import ViewGeocercasModal from './components/ViewGeocercasModal.jsx';
 
 export default function Dashboard() {
   const { user, logout } = useContext(AuthContext);
@@ -59,6 +60,7 @@ export default function Dashboard() {
 
   // === NUEVO: estado para geocercas ===
   const [geofenceOpen, setGeofenceOpen] = useState(false);
+  const [viewGeocercasOpen, setViewGeocercasOpen] = useState(false);
   const [pacienteSeleccionado, setPacienteSeleccionado] = useState(null);
   const [geofenceCounts, setGeofenceCounts] = useState({}); // { [pacienteId]: n }
 
@@ -156,6 +158,16 @@ export default function Dashboard() {
     setPacienteSeleccionado(null);
   };
 
+  // === NUEVO: abrir/cerrar modal ver geocercas ===
+  const abrirVerGeocercas = async (paciente) => {
+    setPacienteSeleccionado(paciente);
+    setViewGeocercasOpen(true);
+  };
+  const cerrarVerGeocercas = () => {
+    setViewGeocercasOpen(false);
+    setPacienteSeleccionado(null);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e0f7fa] to-[#b2ebf2]">
       {/* HEADER */}
@@ -226,19 +238,25 @@ export default function Dashboard() {
                   <div className="text-sm text-gray-600">
                     {p.lat_dms && p.lng_dms ? (
                       <>Ubicación (DMS): {p.lat_dms}, {p.lng_dms}</>
-                    ) : p.latitud && p.longitud ? (
+                    ) : (p.latitud && p.longitud) ? (
                       <>Ubicación (decimal): {p.latitud}, {p.longitud}</>
                     ) : (
                       "Sin ubicación"
                     )}
                   </div>
 
-                  <div className="mt-2">
+                  <div className="mt-2 flex gap-2">
                     <button
                       onClick={() => abrirGeocerca(p)}
                       className="px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700"
                     >
                       Configurar geocerca
+                    </button>
+                    <button
+                      onClick={() => abrirVerGeocercas(p)}
+                      className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      Ver geocercas
                     </button>
                   </div>
                 </div>
@@ -408,6 +426,13 @@ export default function Dashboard() {
           }
         }}
       />
+
+        {/* Modal ver geocercas */}
+        <ViewGeocercasModal
+          open={viewGeocercasOpen}
+          paciente={pacienteSeleccionado}
+          onClose={cerrarVerGeocercas}
+        />
 
 
         {/* estilos animaciones (tuyos) */}

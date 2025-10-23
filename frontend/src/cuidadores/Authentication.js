@@ -30,10 +30,9 @@ export default function DoubleSliderForm() {
   const [registerTouched, setRegisterTouched] = useState({});
   const [registerLoading, setRegisterLoading] = useState(false);
 
-  const [animateEntry, setAnimateEntry] = useState(false);
   useEffect(() => {
-    setAnimateEntry(true);
-    const timeout = setTimeout(() => setAnimateEntry(false), 1000);
+    // Animación de entrada
+    const timeout = setTimeout(() => {}, 1000);
     return () => clearTimeout(timeout);
   }, []);
 
