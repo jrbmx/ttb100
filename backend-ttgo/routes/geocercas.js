@@ -8,8 +8,8 @@ const auth     = require('../middleware/auth');
 // Crea una geocerca nueva
 router.post('/', auth, async (req, res) => {
   try {
-    const { pacienteId, coords } = req.body;
-    if (!pacienteId || !Array.isArray(coords) || coords.length < 3) {
+    const { pacienteId, coords, nombre } = req.body;
+    if (!pacienteId || !Array.isArray(coords) || coords.length < 3 || !nombre?.trim()) {
       return res.status(400).json({ mensaje: 'Datos inválidos' });
     }
 
@@ -20,6 +20,7 @@ router.post('/', auth, async (req, res) => {
     const doc = await Geocerca.create({
       paciente: pacienteId,
       cuidador: req.user.id,
+      nombre: nombre.trim(),
       coords: coords.map(([lat, lng]) => ({ lat, lng })),
     });
 
@@ -38,6 +39,66 @@ router.get('/:pacienteId', auth, async (req, res) => {
     res.json(docs); // <- array
   } catch (e) {
     console.error('geocerca GET:', e);
+    res.status(500).json({ mensaje: 'Error del servidor' });
+  }
+});
+
+// Actualiza UNA geocerca específica
+router.put('/:geocercaId', auth, async (req, res) => {
+  try {
+    console.log('PUT /api/geocercas/:geocercaId - Iniciando actualización');
+    const { geocercaId } = req.params;
+    const { coords, nombre } = req.body;
+    console.log('Geocerca ID:', geocercaId, 'Coords:', coords, 'Nombre:', nombre);
+    
+    if (!Array.isArray(coords) || coords.length < 3) {
+      return res.status(400).json({ mensaje: 'Coordenadas inválidas' });
+    }
+
+    const updateData = {
+      coords: coords.map(([lat, lng]) => ({ lat, lng }))
+    };
+
+    if (nombre?.trim()) {
+      updateData.nombre = nombre.trim();
+    }
+
+    const geocerca = await Geocerca.findOneAndUpdate(
+      { _id: geocercaId, cuidador: req.user.id },
+      updateData,
+      { new: true }
+    );
+
+    if (!geocerca) {
+      return res.status(404).json({ mensaje: 'Geocerca no encontrada' });
+    }
+
+    res.json(geocerca);
+  } catch (e) {
+    console.error('geocerca PUT:', e);
+    res.status(500).json({ mensaje: 'Error del servidor' });
+  }
+});
+
+// Elimina UNA geocerca específica
+router.delete('/:geocercaId', auth, async (req, res) => {
+  try {
+    console.log('DELETE /api/geocercas/:geocercaId - Iniciando eliminación');
+    const { geocercaId } = req.params;
+    console.log('Geocerca ID a eliminar:', geocercaId);
+    
+    const geocerca = await Geocerca.findOneAndDelete({
+      _id: geocercaId,
+      cuidador: req.user.id
+    });
+
+    if (!geocerca) {
+      return res.status(404).json({ mensaje: 'Geocerca no encontrada' });
+    }
+
+    res.json({ mensaje: 'Geocerca eliminada correctamente' });
+  } catch (e) {
+    console.error('geocerca DELETE:', e);
     res.status(500).json({ mensaje: 'Error del servidor' });
   }
 });
