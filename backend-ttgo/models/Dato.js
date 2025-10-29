@@ -44,12 +44,12 @@ function parseLongitud(val) {
 }
 
 const DatoSchema = new mongoose.Schema({
-  ///paciente: { type: mongoose.Schema.Types.ObjectId, ref: 'Paciente' }, // opcional
+  paciente: { type: mongoose.Schema.Types.ObjectId, ref: 'Paciente', required: true }, 
   frecuencia: { type: Number, required: true },
   oxigeno:    { type: Number, required: true },
   latitud: { type: Number, required: true, set: parseLatitud },
   longitud: { type: Number, required: true, set: parseLongitud },
-  fecha: { type: Date, default: new Date() }
+  fecha: { type: Date, default: Date.now }
 });
 module.exports = mongoose.model('Dato', DatoSchema);
 

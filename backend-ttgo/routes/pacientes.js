@@ -6,42 +6,39 @@ const Paciente = require('../models/Paciente');
 const Cuidador = require('../models/Cuidador');
 const Counter  = require('../models/Counter');
 const auth     = require('../middleware/auth');
-const { parseDMSPair } = require('../utils/geo');
 
 // POST /api/pacientes  (alta)
-// body: { nombre, apellidoP, apellidoM, edad, dms? }
+// body: { nombre, apellidoP, apellidoM, edad, dispositivo_id }
 router.post('/', auth, async (req, res) => {
   try {
-    const { nombre, apellidoP, apellidoM, edad, dms } = req.body;
+    const { nombre, apellidoP, apellidoM, edad, dispositivo_id } = req.body;
     if (!nombre || !apellidoP || !apellidoM || !edad) {
       return res.status(400).json({ mensaje: 'Faltan campos' });
     }
-
-    let geo = null;
-    if (dms) {
-      geo = parseDMSPair(dms);
-      if (!geo) return res.status(400).json({ mensaje: 'Coordenadas DMS inválidas' });
-    }
-
+/*
     const counter = await Counter.findOneAndUpdate(
       { name: 'paciente' },
       { $inc: { seq: 1 } },
       { new: true, upsert: true }
     );
-
+*/
     const paciente = new Paciente({
-      id_paciente: counter.seq,
+      //id_paciente: counter.seq,
       cuidador: req.user.id,
       nombre, apellidoP, apellidoM, edad,
-      latitud: geo?.lat, longitud: geo?.lng,
-      lat_dms: geo?.lat_dms, lng_dms: geo?.lng_dms
+      dispositivo_id: dispositivo_id
     });
 
-    await paciente.save();
+    try {
+      await paciente.save();
+    } catch (saveError) {
+      if (saveError.code === 11000) {
+        return res.status(409).json({ mensaje: 'Error: El ID del dispositivo ya está registrado.' });
+      }
+      throw saveError;
+    }
 
-    // 👉 ACTUALIZA el cuidador.id_paciente con el id autoincrementable del paciente
-    await Cuidador.findByIdAndUpdate(req.user.id, { id_paciente: paciente.id_paciente });
-
+    //await Cuidador.findByIdAndUpdate(req.user.id, { id_paciente: paciente.id_paciente });
     res.status(201).json(paciente);
   } catch (e) {
     console.error('Alta paciente:', e);
@@ -55,20 +52,10 @@ router.get('/', auth, async (req, res) => {
   res.json(items);
 });
 
-// PUT /api/pacientes/:id  (editar datos + opcionalmente DMS)
+// PUT /api/pacientes/:id  (editar datos)
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { dms, ...rest } = req.body;
-    let updates = { ...rest };
-
-    if (dms) {
-      const geo = parseDMSPair(dms);
-      if (!geo) return res.status(400).json({ mensaje: 'Coordenadas DMS inválidas' });
-      updates.latitud = geo.lat;
-      updates.longitud = geo.lng;
-      updates.lat_dms = geo.lat_dms;
-      updates.lng_dms = geo.lng_dms;
-    }
+    const updates = req.body;
 
     const pac = await Paciente.findOneAndUpdate(
       { _id: req.params.id, cuidador: req.user.id },
@@ -78,6 +65,10 @@ router.put('/:id', auth, async (req, res) => {
     if (!pac) return res.status(404).json({ mensaje: 'No encontrado' });
     res.json(pac);
   } catch (e) {
+    if (e.code === 11000) {
+      return res.status(409).json({ mensaje: 'Error: El ID del dispositivo ya está registrado.' });
+    }
+    console.error('Actualizar paciente', e)
     res.status(500).json({ mensaje: 'Error del servidor' });
   }
 });
@@ -89,3 +80,7 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 module.exports = router;
+
+// si se quiere asignar el mismo dispositivo a diferentes pacientes, es necesario primero actualizar
+// el campo del paciente que lo tiene asignado a null, para posteriormente, actualizar el campo del
+// otro paciente con el id del dispositivo 
