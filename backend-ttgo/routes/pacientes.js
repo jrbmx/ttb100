@@ -4,7 +4,6 @@ const router = express.Router();
 
 const Paciente = require('../models/Paciente');
 const Cuidador = require('../models/Cuidador');
-const Counter  = require('../models/Counter');
 const auth     = require('../middleware/auth');
 
 // POST /api/pacientes  (alta)

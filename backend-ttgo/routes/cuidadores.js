@@ -4,7 +4,6 @@ const jwt     = require('jsonwebtoken');
 const router  = express.Router();
 
 const Cuidador = require('../models/Cuidador');
-const Counter  = require('../models/Counter');
 const transporter = require('../utils/email/transporter');
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -26,15 +25,15 @@ router.post('/register', async (req, res) => {
     if (existing) return res.status(400).json({ mensaje: 'Correo ya registrado' });
 
     const hash = await bcrypt.hash(password, 10);
-
+/*
     const counter = await Counter.findOneAndUpdate(
       { name: 'cuidador' },
       { $inc: { seq: 1 } },
       { new: true, upsert: true }
     );
-
+*/
     const nuevoCuidador = new Cuidador({
-      id_cuidador: counter.seq,
+      //id_cuidador: counter.seq,
       nombre, apellidoP, apellidoM, email, telefono,
       password: hash,
       verificado: false
@@ -99,24 +98,20 @@ router.post('/login', async (req, res) => {
       token,
       cuidador: {
         _id: cuidador._id,
-        id_cuidador: cuidador.id_cuidador,
+        //id_cuidador: cuidador.id_cuidador,
         nombre: cuidador.nombre,
         apellidoP: cuidador.apellidoP,
         apellidoM: cuidador.apellidoM,
         email: cuidador.email,
         telefono: cuidador.telefono,
         verificado: cuidador.verificado,
-        id_paciente: cuidador.id_paciente ?? null
+        //id_paciente: cuidador.id_paciente ?? null
       }
     });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ mensaje: 'Error del servidor', error: err.message });
   }
-
-  // ❌ Estas líneas estaban mal ubicadas (fuera del try) y nunca debían ejecutarse.
-  // const token = jwt.sign({ id: cuidador._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-  // res.json({ mensaje:'Inicio de sesión correcto', token, cuidador: {/* ... */} });
 });
 
 // ----------------- OLVIDÉ MI CONTRASEÑA -----------------
