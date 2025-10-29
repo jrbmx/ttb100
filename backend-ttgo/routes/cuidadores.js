@@ -149,7 +149,7 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-// ----------------- RESTABLECER CONTRASEÑA -----------------
+// ----------------- RESTABLECER CONTRASEÑA -------------
 router.post('/reset-password', async (req, res) => {
   try {
     const { token, password } = req.body;
