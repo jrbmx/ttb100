@@ -57,13 +57,11 @@ router.get('/:id/ubicacion', auth, async (req, res) => {
   try {
     const pacienteId = req.params.id;
 
-    // Verifica que el paciente pertenezca al cuidador logueado
     const paciente = await Paciente.findOne({ _id: pacienteId, cuidador: req.user.id });
     if (!paciente) {
       return res.status(404).json({ mensaje: 'Paciente no encontrado o no autorizado' });
     }
 
-    // Trae el último dato asociado a este paciente
     const Dato = require('../models/Dato');
     const ultimoDato = await Dato.findOne({ paciente: pacienteId })
       .sort({ fecha: -1 })

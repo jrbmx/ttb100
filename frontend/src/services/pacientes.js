@@ -25,3 +25,14 @@ export async function listarPacientes() {
   if (!res.ok) throw new Error(data.mensaje || 'Error listando pacientes');
   return data;
 }
+
+export async function mostrarUbicacionPaciente(pacienteId) {
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${API}/api/pacientes/${pacienteId}/ubicacion`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.mensaje || 'Error al obtener la ubicación');
+  return data; // { latitud, longitud, fecha }
+}
+
