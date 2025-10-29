@@ -2,12 +2,13 @@
 const mongoose = require('mongoose');
 
 const PacienteSchema = new mongoose.Schema({
-  id_paciente: { type: Number, unique: true, index: true },   // autoincrement
-  dispositivoId: {
+  //id_paciente: { type: Number, unique: true, index: true },   // autoincrement
+  dispositivo_id: {
     type: String,
-    required: true,
     unique: true,
-    index: true
+    index: true,
+    partialFilterExpression: { dispositivo_id: { $exists: true, $ne: "" } },
+    default: null
   },
 
   cuidador: { type: mongoose.Schema.Types.ObjectId, ref: 'Cuidador', required: true },

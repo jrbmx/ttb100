@@ -12,21 +12,21 @@ const auth     = require('../middleware/auth');
 router.post('/', auth, async (req, res) => {
   try {
     const { nombre, apellidoP, apellidoM, edad, dispositivo_id } = req.body;
-    if (!nombre || !apellidoP || !apellidoM || !edad || !dispositivo_id) {
+    if (!nombre || !apellidoP || !apellidoM || !edad) {
       return res.status(400).json({ mensaje: 'Faltan campos' });
     }
-
+/*
     const counter = await Counter.findOneAndUpdate(
       { name: 'paciente' },
       { $inc: { seq: 1 } },
       { new: true, upsert: true }
     );
-
+*/
     const paciente = new Paciente({
-      id_paciente: counter.seq,
+      //id_paciente: counter.seq,
       cuidador: req.user.id,
       nombre, apellidoP, apellidoM, edad,
-      dispositivoId: dispositivo_id
+      dispositivo_id: dispositivo_id
     });
 
     try {
@@ -38,7 +38,7 @@ router.post('/', auth, async (req, res) => {
       throw saveError;
     }
 
-    await Cuidador.findByIdAndUpdate(req.user.id, { id_paciente: paciente.id_paciente });
+    //await Cuidador.findByIdAndUpdate(req.user.id, { id_paciente: paciente.id_paciente });
     res.status(201).json(paciente);
   } catch (e) {
     console.error('Alta paciente:', e);
@@ -68,6 +68,7 @@ router.put('/:id', auth, async (req, res) => {
     if (e.code === 11000) {
       return res.status(409).json({ mensaje: 'Error: El ID del dispositivo ya está registrado.' });
     }
+    console.error('Actualizar paciente', e)
     res.status(500).json({ mensaje: 'Error del servidor' });
   }
 });
