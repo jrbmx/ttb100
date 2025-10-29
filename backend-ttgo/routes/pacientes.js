@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 
+const Dato = require('../models/Dato');
 const Paciente = require('../models/Paciente');
 const Cuidador = require('../models/Cuidador');
 const auth     = require('../middleware/auth');
@@ -49,6 +50,38 @@ router.post('/', auth, async (req, res) => {
 router.get('/', auth, async (req, res) => {
   const items = await Paciente.find({ cuidador: req.user.id }).sort({ creadoEn: -1 });
   res.json(items);
+});
+
+// GET /api/pacientes/:id/ubicacion (última ubicación del paciente)
+router.get('/:id/ubicacion', auth, async (req, res) => {
+  try {
+    const pacienteId = req.params.id;
+
+    // Verifica que el paciente pertenezca al cuidador logueado
+    const paciente = await Paciente.findOne({ _id: pacienteId, cuidador: req.user.id });
+    if (!paciente) {
+      return res.status(404).json({ mensaje: 'Paciente no encontrado o no autorizado' });
+    }
+
+    // Trae el último dato asociado a este paciente
+    const Dato = require('../models/Dato');
+    const ultimoDato = await Dato.findOne({ paciente: pacienteId })
+      .sort({ fecha: -1 })
+      .select('latitud longitud fecha');
+
+    if (!ultimoDato) {
+      return res.status(404).json({ mensaje: 'Sin datos de ubicación' });
+    }
+
+    res.json({
+        latitud: ultimoDato.latitud,
+        longitud: ultimoDato.longitud,
+        fecha: ultimoDato.fecha,
+    });
+  } catch (error) {
+    console.error('Error obteniendo ubicación:', error);
+    res.status(500).json({ mensaje: 'Error del servidor' });
+  }
 });
 
 // PUT /api/pacientes/:id  (editar datos)
