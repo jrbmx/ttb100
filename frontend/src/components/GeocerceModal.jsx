@@ -13,8 +13,8 @@ import { mostrarUbicacionPaciente } from "../services/pacientes";
 /* ======================== Capa de dibujo ======================== */
 function DrawLayer({ paciente, geocercasExistentes, onReady, onError, onPluginOK }) {
   const map = useMap();
-  const drawnRef = useRef(null);   // NUEVOS (editables)
-  const existRef = useRef(null);   // EXISTENTES (solo lectura)
+  const drawnRef = useRef(null);   
+  const existRef = useRef(null);  
   const ctlRef   = useRef(null);
 
   // Repintar geocercas cuando cambien
