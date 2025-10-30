@@ -3,6 +3,7 @@ const auth = require('../middleware/auth');
 const router = express.Router();
 const Dato = require('../models/Dato');
 const Paciente = require('../models/Paciente');
+const Cuidador = require('../models/Cuidador')
 
 router.post('/', async (req, res) => {
   try {
@@ -32,15 +33,23 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ error: 'Dispositivo no registrado o no asignado a un paciente' });
     }
 
+    let telefonoCuidador = null;
+    if (paciente.cuidador) {
+        const cuidador = await Cuidador.findById(paciente.cuidador).select('telefono');
+        if (cuidador && cuidador.telefono) {
+            telefonoCuidador = cuidador.telefono;
+        }
+    }
+
     const nuevoDato = new Dato({
-      frecuencia,
-      oxigeno,
-      latitud,
-      longitud,
+      frecuencia, oxigeno, latitud, longitud,
       paciente: paciente._id
     });
     await nuevoDato.save();
-    res.status(201).json({ mensaje: 'Dato guardado correctamente', dato: nuevoDato });
+    res.status(201).json({ 
+      mensaje: 'Dato guardado correctamente', 
+      dato: nuevoDato,
+      telefono_cuidador: telefonoCuidador });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

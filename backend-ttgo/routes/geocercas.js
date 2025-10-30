@@ -4,6 +4,7 @@ const router  = express.Router();
 const Geocerca = require('../models/Geocerca');
 const Paciente = require('../models/Paciente');
 const auth     = require('../middleware/auth');
+const { isPointInPolygon } = require('../utils/geo')
 
 // Crea una geocerca nueva
 router.post('/', auth, async (req, res) => {
@@ -99,6 +100,71 @@ router.delete('/:geocercaId', auth, async (req, res) => {
     res.json({ mensaje: 'Geocerca eliminada correctamente' });
   } catch (e) {
     console.error('geocerca DELETE:', e);
+    res.status(500).json({ mensaje: 'Error del servidor' });
+  }
+});
+
+function parseLatitud(val) {
+  if (typeof val !== 'string') return val;
+  if (val == "") return 91.0 // si la conexión es por wifi
+  try {
+    const [numero, direccion] = val.split(' '); // ["19.43", "N"]
+    const num = parseFloat(numero);
+    if (direccion.toUpperCase() === 'S') return num * -1;
+    return num;
+  } catch (e) {
+    return val;
+  }
+}
+
+function parseLongitud(val) {
+  if (typeof val !== 'string') return val;
+  if (val == "") return 181.0
+
+  try {
+    const [numero, direccion] = val.split(' '); // ["99.13", "W"]
+    const num = parseFloat(numero);
+    if (direccion.toUpperCase() === 'W') return num * -1;
+    return num;
+  } catch (e) {
+    return val;
+  }
+}
+
+router.post('/verificar', async (req, res) => {
+  try {
+    const { dispositivo_id, lat, lng } = req.body;
+
+    if (!dispositivo_id || lat === undefined || lng === undefined) {
+      return res.status(400).json({ mensaje: 'Faltan dispositivo_id, lat o lng' });
+    }
+    
+    const parsedLat = parseLatitud(lat);
+    const parsedLng = parseLongitud(lng);
+    const currentLocation = { lat: parsedLat, lng: parsedLng };
+
+    const paciente = await Paciente.findOne({ dispositivo_id: dispositivo_id });
+    if (!paciente) {
+      return res.status(404).json({ mensaje: 'Dispositivo no registrado' });
+    }
+
+    const geocercas = await Geocerca.find({ paciente: paciente._id });
+    if (geocercas.length === 0) {
+      return res.json({ inside: false });
+    }
+
+    let isInside = false;
+    for (const geofence of geocercas) {
+      if (isPointInPolygon(currentLocation, geofence.coords)) {
+        isInside = true;
+        break; 
+      }
+    }
+
+    res.json({ inside: isInside });
+
+  } catch (e) {
+    console.error('geocerca POST /verificar:', e);
     res.status(500).json({ mensaje: 'Error del servidor' });
   }
 });
