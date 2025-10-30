@@ -16,6 +16,10 @@ const PacienteSchema = new mongoose.Schema({
   apellidoP: { type: String, required: true },
   apellidoM: { type: String, required: true },
   edad: { type: Number, required: true },
+  estaEnGeocerca: {
+    type: Boolean,
+    default: true
+  },
   creadoEn: { type: Date, default: Date.now }
 });
 

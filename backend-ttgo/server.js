@@ -13,6 +13,7 @@ const datosRoutes      = require('./routes/datos');
 const cuidadoresRoutes = require('./routes/cuidadores');
 const pacientesRoutes  = require('./routes/pacientes');
 const geocercasRoutes = require('./routes/geocercas');
+const alertasRoutes = require('./routes/alertas')
 const app = express();
 
 // ---------- CORS (Express 5: sin usar '*') ----------
@@ -55,6 +56,7 @@ app.use('/api/datos', datosRoutes);
 app.use('/api/cuidadores', cuidadoresRoutes);
 app.use('/api/pacientes', pacientesRoutes);
 app.use('/api/geocercas', geocercasRoutes); 
+app.use('/api/alertas', alertasRoutes); 
 
 // ---------- Arranque ----------
 const PORT = process.env.PORT || 3000;

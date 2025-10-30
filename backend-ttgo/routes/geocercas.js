@@ -3,6 +3,7 @@ const express = require('express');
 const router  = express.Router();
 const Geocerca = require('../models/Geocerca');
 const Paciente = require('../models/Paciente');
+const Alerta = require('../models/Alerta')
 const auth     = require('../middleware/auth');
 const { isPointInPolygon } = require('../utils/geo')
 
@@ -148,21 +149,42 @@ router.post('/verificar', async (req, res) => {
       return res.status(404).json({ mensaje: 'Dispositivo no registrado' });
     }
 
+    const estadoPrevio = paciente.estaEnGeocerca;
     const geocercas = await Geocerca.find({ paciente: paciente._id });
-    if (geocercas.length === 0) {
-      return res.json({ inside: false });
-    }
-
-    let isInside = false;
-    for (const geofence of geocercas) {
-      if (isPointInPolygon(currentLocation, geofence.coords)) {
-        isInside = true;
-        break; 
+    let estadoActual = false; // Asume que está fuera
+    if (geocercas.length > 0) {
+      for (const geofence of geocercas) {
+        if (isPointInPolygon(currentLocation, geofence.coords)) {
+          estadoActual = true;
+          break; 
+        }
       }
     }
 
-    res.json({ inside: isInside });
+    if (estadoActual !== estadoPrevio) {
+      await Paciente.updateOne({ _id: paciente._id }, { estaEnGeocerca: estadoActual });
+      let tipo, mensaje;
+      
+      if (estadoActual === false) {
+        tipo = 'salida_geocerca';
+        mensaje = `${paciente.nombre} ha salido de la zona segura.`;
+      } else {
+        tipo = 'entrada_geocerca';
+        mensaje = `${paciente.nombre} ha regresado a la zona segura.`;
+      }
 
+      Alerta.create({
+        cuidador: paciente.cuidador,
+        paciente: paciente._id,
+        tipo: tipo,
+        mensaje: mensaje,
+        vista: false // Nace como "no vista"
+      });
+      
+      console.log(`ALERTA CREADA: ${mensaje}`);
+    }
+
+    res.json({ inside: estadoActual });
   } catch (e) {
     console.error('geocerca POST /verificar:', e);
     res.status(500).json({ mensaje: 'Error del servidor' });
