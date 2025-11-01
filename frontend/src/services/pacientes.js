@@ -27,12 +27,43 @@ export async function listarPacientes() {
 }
 
 export async function mostrarUbicacionPaciente(pacienteId) {
-  const token = localStorage.getItem('token');
   const res = await fetch(`${API}/api/pacientes/${pacienteId}/ubicacion`, {
-    headers: { Authorization: `Bearer ${token}` }
+    headers: authHeaders() 
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.mensaje || 'Error al obtener la ubicación');
   return data; // { latitud, longitud, fecha }
 }
 
+// Actualiza un paciente, usado para asignar o liberar dispositivos
+async function actualizarPaciente(pacienteId, payload) {
+  const res = await fetch(`${API}/api/pacientes/${pacienteId}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.mensaje || `Error ${res.status} al actualizar paciente`);
+  }
+  return data;
+}
+
+// Llama a la actualización para setear dispositivo_id a un valor
+export async function asignarDispositivo(pacienteId, dispositivoId) {
+  if (!dispositivoId || dispositivoId.trim() === '') {
+    throw new Error('El ID del dispositivo no puede estar vacío');
+  }
+  return await actualizarPaciente(pacienteId, { 
+    dispositivo_id: dispositivoId.trim() 
+  });
+}
+
+// Llama a la actualización para setear dispositivo_id a null
+export async function liberarDispositivo(pacienteId) {
+  return await actualizarPaciente(pacienteId, { 
+    dispositivo_id: null 
+  });
+}

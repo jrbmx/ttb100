@@ -2,17 +2,60 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "./auth/AuthContext";
-
-// === LO QUE YA TENÍAS ===
-import AltaPacienteModal from "./components/AltaPacienteModal";
-import { listarPacientes } from "./services/pacientes";
-
-// === NUEVO: servicios de geocercas ===
+import { 
+  listarPacientes, 
+  asignarDispositivo,
+  liberarDispositivo
+} from "./services/pacientes";
 import { listarGeocercas } from "./services/geocercas";
-
-// === NUEVO: modal de geocercas ===
+import AltaPacienteModal from "./components/AltaPacienteModal";
 import GeocerceModal from './components/GeocerceModal.jsx';
 import ViewGeocercasModal from './components/ViewGeocercasModal.jsx';
+import InfoCuidadorModal from "./components/InfoCuidadorModal.jsx";
+import DeleteConfirmModal from "./components/DeleteConfirmModal.jsx";
+import LiberarDispositivoModal from "./components/LiberarDispositivoModal.jsx";
+import AsignarDispositivoModal from "./components/AsignarDispositivoModal.jsx";
+import NotificacionPopup from "./components/NotificacionPopup.jsx";
+
+const IconDevice = () => (
+  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+  </svg>
+);
+const IconMapPin = () => (
+  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+const IconLink = () => (
+  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+  </svg>
+);
+const IconUnlink = () => (
+  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244m-9.317 2.025a4.5 4.5 0 01-1.242-7.244l4.5-4.5a4.5 4.5 0 016.364 6.364l-1.757 1.757m-13.35.622l-1.757 1.757a4.5 4.5 0 006.364 6.364l4.5-4.5a4.5 4.5 0 00-1.242-7.244" />
+  </svg>
+);
+const IconUserPlus = () => (
+  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+  </svg>
+);
+const IconInfo = () => (
+  <svg className="w-5 h-5 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+);
+const IconLogout = () => (
+  <svg className="w-5 h-5 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+);
+
+const getInitials = (user) => {
+  if (!user || !user.nombre) return "??";
+  const nombre = user.nombre.split(' ')[0];
+  const apellido = user.apellidoP || '';
+  return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase();
+};
 
 export default function Dashboard() {
   const { user, logout } = useContext(AuthContext);
@@ -38,6 +81,21 @@ export default function Dashboard() {
   const [pacientes, setPacientes] = useState([]);
   const API = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
+  // === NUEVO: estado para geocercas ===
+  const [geofenceOpen, setGeofenceOpen] = useState(false);
+  const [viewGeocercasOpen, setViewGeocercasOpen] = useState(false);
+  const [pacienteSeleccionado, setPacienteSeleccionado] = useState(null);
+  const [geofenceCounts, setGeofenceCounts] = useState({}); // { [pacienteId]: n }
+  
+  // === ESTADO PARA MODALES DE DISPOSITIVO ===
+  const [showLiberarConfirm, setShowLiberarConfirm] = useState(false);
+  const [pacienteParaLiberar, setPacienteParaLiberar] = useState(null);
+  const [isLiberando, setIsLiberando] = useState(false);
+  const [showAsignarModal, setShowAsignarModal] = useState(false);
+  const [pacienteParaAsignar, setPacienteParaAsignar] = useState(null);
+  const [dispositivoIdInput, setDispositivoIdInput] = useState("");
+  const [isAsignando, setIsAsignando] = useState(false);
+
   const cargarPacientes = async () => {
     try {
       const data = await listarPacientes();
@@ -55,14 +113,10 @@ export default function Dashboard() {
       setGeofenceCounts(counts);
     } catch (e) {
       console.error("Error al listar pacientes:", e);
+      setPopup({ show: true, success: false, message: e.message || "Error al cargar pacientes" });
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
     }
   };
-
-  // === NUEVO: estado para geocercas ===
-  const [geofenceOpen, setGeofenceOpen] = useState(false);
-  const [viewGeocercasOpen, setViewGeocercasOpen] = useState(false);
-  const [pacienteSeleccionado, setPacienteSeleccionado] = useState(null);
-  const [geofenceCounts, setGeofenceCounts] = useState({}); // { [pacienteId]: n }
 
   useEffect(() => {
     const fetchDatos = async () => {
@@ -89,11 +143,7 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/auth");
-  };
-
+  const handleLogout = () => { logout(); navigate("/auth"); };
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const actualizarInfo = async () => {
@@ -168,96 +218,218 @@ export default function Dashboard() {
     setPacienteSeleccionado(null);
   };
 
+  // === Handlers para LIBERAR dispositivo ===
+  const handleLiberarClick = (paciente) => {
+    setPacienteParaLiberar(paciente);
+    setShowLiberarConfirm(true);
+  };
+
+  const handleCancelarLiberar = () => {
+    if (isLiberando) return;
+    setShowLiberarConfirm(false);
+    setPacienteParaLiberar(null);
+  };
+
+  const handleConfirmarLiberar = async () => {
+    if (isLiberando) return;
+    setIsLiberando(true);
+    
+    try {
+      await liberarDispositivo(pacienteParaLiberar._id);
+      handleCancelarLiberar();
+      setPopup({ show: true, success: true, message: "Dispositivo liberado" });
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
+      await cargarPacientes(); 
+    } catch (e) {
+      setPopup({ show: true, success: false, message: e.message });
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 2500);
+    } finally {
+      setIsLiberando(false);
+    }
+  };
+
+  // === Handlers para ASIGNAR dispositivo ===
+  const handleAsignarClick = (paciente) => {
+    setPacienteParaAsignar(paciente);
+    setDispositivoIdInput(""); // Limpiar input
+    setShowAsignarModal(true);
+  };
+
+  const handleCancelarAsignar = () => {
+    if (isAsignando) return;
+    setShowAsignarModal(false);
+    setPacienteParaAsignar(null);
+    setDispositivoIdInput("");
+  };
+
+  /* Confirma y ejecuta la asignación del dispositivo */
+  const handleConfirmarAsignar = async () => {
+    if (isAsignando || !dispositivoIdInput.trim()) return;
+    setIsAsignando(true);
+    try {
+      await asignarDispositivo(pacienteParaAsignar._id, dispositivoIdInput);
+      handleCancelarAsignar();
+      setPopup({ show: true, success: true, message: "Dispositivo asignado" });
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
+      await cargarPacientes(); 
+    } catch (e) {
+      setPopup({ show: true, success: false, message: e.message });
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000); 
+    } finally {
+      setIsAsignando(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#e0f7fa] to-[#b2ebf2]">
+    <div className="min-h-screen bg-gradient-to-br from-[#e0f7fa] to-[#b2ebf2] pb-10">
       {/* HEADER */}
       <header
         className="fixed top-0 left-0 w-full bg-gradient-to-r from-[#3f535e] to-[#06354f] py-4 shadow-lg flex justify-between items-center px-6 animate-fade-in"
         style={{ zIndex: 1000 }}
       >
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-
-        {/* Dar de alta */}
-        <button
-          onClick={() => setAltaOpen(true)}
-          className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-full"
-        >
-          Dar de alta
-        </button>
-
-        <div className="relative">
-          <button onClick={() => setMenuOpen(!menuOpen)} className="text-white focus:outline-none">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+        <div className="flex items-center space-x-3">
+          <h1 className="text-2xl font-bold text-white hidden sm:block">Dashboard</h1>
+        </div>
+        <div className="hidden md:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+          <button
+            onClick={() => setAltaOpen(true)}
+            className="flex items-center bg-[#3A6EA5] hover:bg-[#2E5984] text-white px-4 py-2 rounded-full shadow-md transition-transform transform hover:scale-105"
+          >
+            <IconUserPlus />
+            Dar de alta
           </button>
+        </div>
+        <div className="relative">
+          <button 
+            onClick={() => setMenuOpen(!menuOpen)} 
+            className="flex items-center justify-center w-10 h-10 bg-gray-700 rounded-full text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-teal-500 transition-transform transform hover:scale-105"
+          >
+            {getInitials(user)}
+          </button>
+
+          {/* --- Menú Desplegable --- */}
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white border rounded shadow-md z-50 animate-slide-down">
-              <button
-                onClick={() => { setShowModal(true); setMenuOpen(false); }}
-                className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 w-full text-left"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01" />
-                </svg>
-                Mi Información
-              </button>
-              <button
-                onClick={() => { setMenuOpen(false); handleLogout(); }}
-                className="flex items-center px-4 py-2 text-red-600 hover:bg-gray-100 w-full text-left"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7" />
-                </svg>
-                Cerrar sesión
-              </button>
+            <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-md shadow-lg z-50 animate-slide-down overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-700">
+                <p className="text-sm text-white">{user?.nombre} {user?.apellidoP}</p>
+                <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+              </div>
+              <nav className="py-1">
+                <button
+                  onClick={() => { setAltaOpen(true); setMenuOpen(false); }}
+                  className="md:hidden flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 w-full text-left"
+                >
+                  <IconUserPlus className="w-5 h-5 mr-3 text-gray-400" />
+                  Dar de alta
+                </button>
+
+                <button
+                  onClick={() => { setShowModal(true); setMenuOpen(false); }}
+                  className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 w-full text-left"
+                >
+                  <IconInfo />
+                  Mi Información
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); handleLogout(); }}
+                  className="flex items-center px-4 py-2 text-sm text-red-400 hover:bg-gray-700 w-full text-left"
+                >
+                  <IconLogout />
+                  Cerrar sesión
+                </button>
+              </nav>
             </div>
           )}
         </div>
       </header>
 
       {/* CONTENIDO */}
-      <div className="pt-24">
-        {/* Mis pacientes */}
+      <div className="pt-24 container mx-auto px-4">
         <div className="bg-white rounded-xl shadow-2xl p-6 z-1 animate-zoom-in mb-6">
-          <h2 className="text-2xl font-semibold text-center text-gray-800 mb-4">Mis pacientes</h2>
-
+          <h2 className="text-2xl font-semibold text-center text-gray-800 mb-6">Mis pacientes</h2>
           {pacientes.length === 0 ? (
             <p className="text-center text-gray-500">Aún no has dado de alta pacientes.</p>
           ) : (
-            <div className="grid gap-3">
+            <div className="space-y-4">
               {pacientes.map((p) => (
-                <div key={p._id} className="border rounded p-3">
-                  <div className="font-semibold flex items-center flex-wrap gap-2">
-                    <span>#{p.id_paciente} — {p.nombre} {p.apellidoP} {p.apellidoM} ({p.edad})</span>
-                    <span className="ml-2 inline-block px-2 py-0.5 text-xs rounded bg-emerald-100 text-emerald-700">
-                      Geocercas: {geofenceCounts[p._id] ?? 0}
-                    </span>
-                  </div>
+                <div key={p._id} className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-lg">
+                  <div className="flex flex-col md:flex-row">
+                    
+                    {/* --- Columna 1: Info Paciente --- */}
+                    <div className="flex-grow p-4 pr-4">
+                      <div className="flex items-center flex-wrap gap-x-3">
+                        <span className="text-lg font-bold text-gray-800">
+                          {p.nombre} {p.apellidoP} {p.apellidoM} ({p.edad})
+                        </span>
+                        <span className="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
+                          Geocercas: {geofenceCounts[p._id] ?? 0}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        {p.lat_dms && p.lng_dms ? (
+                          <>Ubicación (DMS): {p.lat_dms}, {p.lng_dms}</>
+                        ) : (p.latitud && p.longitud) ? (
+                          <>Ubicación (decimal): {p.latitud}, {p.longitud}</>
+                        ) : (
+                          "Sin ubicación"
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* --- Columna 2: Acciones --- */}
+                    <div className="flex-shrink-0 bg-gray-50 md:w-72 border-t md:border-t-0 md:border-l border-gray-200">
+                      <div className="p-3 flex space-x-2">
+                        <button
+                          onClick={() => abrirGeocerca(p)}
+                          className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
+                        >
+                          <IconMapPin />
+                          Configurar
+                        </button>
+                        <button
+                          onClick={() => abrirVerGeocercas(p)}
+                          className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
+                        >
+                          Ver
+                        </button>
+                      </div>
 
-                  <div className="text-sm text-gray-600">
-                    {p.lat_dms && p.lng_dms ? (
-                      <>Ubicación (DMS): {p.lat_dms}, {p.lng_dms}</>
-                    ) : (p.latitud && p.longitud) ? (
-                      <>Ubicación (decimal): {p.latitud}, {p.longitud}</>
-                    ) : (
-                      "Sin ubicación"
-                    )}
-                  </div>
+                      {/* --- SECCIÓN DISPOSITIVO --- */}
+                      <div className="border-t border-gray-200 px-3 pt-2 pb-3">
+                        <h5 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Dispositivo</h5>
+                        <div className="flex items-center justify-between min-h-[34px]"> {/* Altura mínima para evitar saltos */}
+                          {p.dispositivo_id ? (
+                            // -- Caso 1: Dispositivo ASIGNADO --
+                            <>
+                              <span className="text-sm font-medium bg-gray-200 text-gray-800 px-2 py-1 rounded-md flex items-center overflow-hidden">
+                                <IconDevice />
+                                <span className="truncate" title={p.dispositivo_id}>{p.dispositivo_id}</span>
+                              </span>
+                              <button 
+                                onClick={() => handleLiberarClick(p)}
+                                className="text-sm flex items-center px-3 py-1.5 rounded-md bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 transition-colors"
+                              >
+                                <IconUnlink />
+                                Liberar
+                              </button>
+                            </>
+                          ) : (
+                            // -- Caso 2: Dispositivo NO asignado --
+                            <>
+                              <span className="text-sm italic text-gray-500">No asignado</span>
+                              <button 
+                                onClick={() => handleAsignarClick(p)}
+                                className="text-sm flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm"
+                              >
+                                <IconLink />
+                                Asignar
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
 
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      onClick={() => abrirGeocerca(p)}
-                      className="px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700"
-                    >
-                      Configurar geocerca
-                    </button>
-                    <button
-                      onClick={() => abrirVerGeocercas(p)}
-                      className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
-                    >
-                      Ver geocercas
-                    </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -265,7 +437,8 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Datos */}
+
+        {/* Datos Tabla */}
         <div className="bg-white rounded-xl shadow-2xl p-6 z-1 animate-zoom-in">
           <h2 className="text-2xl font-semibold text-center text-gray-800 mb-4">Datos Recibidos</h2>
           <div className="overflow-x-auto">
@@ -300,142 +473,89 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* POPUPS Y MODALES (tuyos, intactos) */}
-        {popup.show && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 animate-popup-fade"
-               style={{ zIndex: 1200 }} onClick={() => setPopup({ ...popup, show: false })}>
-            <div className="bg-white rounded-xl shadow-2xl px-8 py-6 flex flex-col items-center animate-fade-in-up min-w-[280px] transition transform hover:scale-105"
-                 onClick={(e) => e.stopPropagation()}>
-              {popup.success ? (
-                <svg className="w-14 h-14 text-green-500 mb-2" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="#d1fae5" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4" stroke="#22c55e" />
-                </svg>
-              ) : (
-                <svg className="w-14 h-14 text-red-500 mb-2" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="#fee2e2" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 9l-6 6m0-6l6 6" stroke="#ef4444" />
-                </svg>
-              )}
-              <span className={`text-lg font-semibold ${popup.success ? "text-green-600" : "text-red-600"}`}>{popup.message}</span>
-            </div>
-          </div>
-        )}
-
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-[1100] animate-popup-fade">
-            <div className="bg-white rounded-3xl p-8 w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl transform transition-all duration-500 animate-fade-in-up">
-              <h2 className="text-2xl font-bold text-center mb-6 text-transparent bg-clip-text bg-gradient-to-r from-[#00DDDD] to-[#24E3D6]">Mi Información</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-gray-700 mb-1 font-medium">Nombre</label>
-                  <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre"
-                         className="w-full border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[#24E3D6] transition transform hover:scale-105 hover:bg-gray-50" />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-1 font-medium">Apellido Paterno</label>
-                  <input name="apellidoP" value={form.apellidoP} onChange={handleChange} placeholder="Apellido Paterno"
-                         className="w-full border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[#24E3D6] transition transform hover:scale-105 hover:bg-gray-50" />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-1 font-medium">Apellido Materno</label>
-                  <input name="apellidoM" value={form.apellidoM} onChange={handleChange} placeholder="Apellido Materno"
-                         className="w-full border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[#24E3D6] transition transform hover:scale-105 hover:bg-gray-50" />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-1 font-medium">Teléfono</label>
-                  <input name="telefono" value={form.telefono} onChange={handleChange} placeholder="Teléfono"
-                         className="w-full border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[#24E3D6] transition transform hover:scale-105 hover:bg-gray-50" />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-1 font-medium">Correo electrónico</label>
-                  <input name="email" value={form.email} disabled className="w-full border border-gray-300 rounded-xl p-3 bg-gray-100" />
-                </div>
-              </div>
-              <div className="mt-6 flex justify-between">
-                <button onClick={actualizarInfo}
-                        className="flex-1 bg-gradient-to-r from-[#24E3D6] to-[#00DDDD] px-6 py-2 rounded-full text-white font-semibold transition transform hover:scale-105 hover:from-[#00DDDD] hover:to-[#24E3D6] hover:shadow-lg">
-                  Actualizar
-                </button>
-                <button onClick={() => setShowModal(false)}
-                        className="ml-4 flex-1 border border-gray-300 px-6 py-2 rounded-full text-gray-600 transition transform hover:bg-gray-100 hover:scale-105 hover:shadow">
-                  Cancelar
-                </button>
-              </div>
-              <hr className="my-6" />
-              <div className="text-center">
-                <button onClick={() => setShowDeleteConfirm(true)}
-                        className="text-sm text-red-600 border border-red-400 px-6 py-2 rounded-full transition transform hover:bg-red-200 hover:scale-105 hover:shadow">
-                  Eliminar cuenta
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showDeleteConfirm && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-[1200] animate-popup-fade"
-               onClick={() => setShowDeleteConfirm(false)}>
-            <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl transform transition-all duration-500 animate-fade-in-up"
-                 onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-center mb-4">Confirmación</h3>
-              <p className="text-center text-gray-700 mb-6">¿Estás seguro de que deseas eliminar tu cuenta? Esta acción no se puede deshacer.</p>
-              <div className="flex justify-around">
-                <button onClick={() => { setShowDeleteConfirm(false); borrarCuenta(); }}
-                        className="bg-red-600 text-white px-4 py-2 rounded-full transition transform hover:bg-red-700 hover:scale-105 hover:shadow-lg">
-                  Sí, eliminar
-                </button>
-                <button onClick={() => setShowDeleteConfirm(false)}
-                        className="border border-gray-300 text-gray-700 px-4 py-2 rounded-full transition transform hover:bg-gray-100 hover:scale-105 hover:shadow">
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Modal alta */}
-        <AltaPacienteModal open={altaOpen} onClose={() => setAltaOpen(false)} onCreated={cargarPacientes} />
-
-        {/* Modal geocercas: guarda N polígonos */}
-        <GeocerceModal
-        open={geofenceOpen}
-        paciente={pacienteSeleccionado}
-        onClose={cerrarGeocerca}
-        onSaved={async () => {
-          try {
-            // refresca la lista y el contador
-            await cargarPacientes();
-            if (pacienteSeleccionado?._id) {
-              const g = await listarGeocercas(pacienteSeleccionado._id);
-              setGeofenceCounts(m => ({
-                ...m,
-                [pacienteSeleccionado._id]: Array.isArray(g) ? g.length : 0
-              }));
-            }
-
-            // feedback
-            setPopup({ show: true, success: true, message: "Geocerca(s) guardada(s)" });
-            setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
-          } catch (e) {
-            setPopup({ show: true, success: false, message: e.message || "Error al refrescar geocercas" });
-            setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1800);
-          } finally {
-            cerrarGeocerca();
-          }
-        }}
-      />
-
-        {/* Modal ver geocercas */}
-        <ViewGeocercasModal
-          open={viewGeocercasOpen}
-          paciente={pacienteSeleccionado}
-          onClose={cerrarVerGeocercas}
+        {/* MODAL: Mi Información */}
+        <InfoCuidadorModal
+          open={showModal}
+          onClose={() => setShowModal(false)}
+          form={form}
+          onChange={handleChange}
+          onUpdate={actualizarInfo}
+          onDeleteClick={() => {
+            setShowModal(false); // Cierra este modal
+            setShowDeleteConfirm(true); // Abre el de confirmación
+          }}
         />
 
+        {/* MODAL: Confirmar Borrar Cuenta */}
+        <DeleteConfirmModal
+          open={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={() => {
+            setShowDeleteConfirm(false);
+            borrarCuenta();
+          }}
+        />
+        
+        {/* MODAL: Alta Paciente */}
+        <AltaPacienteModal open={altaOpen} onClose={() => setAltaOpen(false)} onCreated={cargarPacientes} />
+        
+        {/* MODAL: Configurar Geocerca */}
+        <GeocerceModal 
+          open={geofenceOpen} 
+          paciente={pacienteSeleccionado} 
+          onClose={cerrarGeocerca} 
+          onSaved={async () => {
+            try {
+              await cargarPacientes();
+              if (pacienteSeleccionado?._id) {
+                const g = await listarGeocercas(pacienteSeleccionado._id);
+                setGeofenceCounts(m => ({ ...m, [pacienteSeleccionado._id]: Array.isArray(g) ? g.length : 0 }));
+              }
+              setPopup({ show: true, success: true, message: "Geocerca(s) guardada(s)" });
+              setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
+            } catch (e) {
+              setPopup({ show: true, success: false, message: e.message || "Error al refrescar geocercas" });
+              setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1800);
+            } finally {
+              cerrarGeocerca();
+            }
+          }} 
+        />
+        
+        {/* MODAL: Ver Geocercas */}
+        <ViewGeocercasModal 
+          open={viewGeocercasOpen} 
+          paciente={pacienteSeleccionado} 
+          onClose={cerrarVerGeocercas} 
+        />
 
-        {/* estilos animaciones (tuyos) */}
+        {/* === MODAL: Confirmar Liberar Dispositivo === */}
+        <LiberarDispositivoModal
+          open={showLiberarConfirm}
+          onClose={handleCancelarLiberar}
+          onConfirm={handleConfirmarLiberar}
+          paciente={pacienteParaLiberar}
+          isLiberando={isLiberando}
+        />
+        
+        {/* === MODAL: Asignar Dispositivo === */}
+        <AsignarDispositivoModal
+          open={showAsignarModal}
+          onClose={handleCancelarAsignar}
+          onConfirm={handleConfirmarAsignar}
+          paciente={pacienteParaAsignar}
+          isAsignando={isAsignando}
+          idInput={dispositivoIdInput}
+          onIdInputChange={(e) => setDispositivoIdInput(e.target.value)}
+        />
+
+        {/* POPUP DE NOTIFICACIÓN */}
+        <NotificacionPopup
+          popup={popup}
+          onClose={() => setPopup({ ...popup, show: false })}
+        />
+
+        {/* estilos animaciones */}
         <style>{`
           @keyframes zoom-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
           .animate-zoom-in { animation: zoom-in 0.7s cubic-bezier(.4,0,.2,1) both; }
