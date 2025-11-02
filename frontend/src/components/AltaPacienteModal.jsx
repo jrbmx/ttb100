@@ -27,12 +27,6 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
       return;
     }
 
-    const handleClose = () => {
-      setForm({ nombre:'', apellidoP:'', apellidoM:'', edad:'' });
-      setError('');
-      onClose();
-    }
-
     try {
       setLoading(true);
       await crearPaciente({ ...form, edad: Number(form.edad) }); // sin DMS
@@ -61,7 +55,7 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
         className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl transform transition-all duration-500 animate-fade-in-up"
         onClick={(e) => e.stopPropagation()} // Evita que se cierre al hacer clic dentro
       >
-        <h3 className="text-xl font-bold text-center mb-6 text-teal-600 flex items-center justify-center">
+        <h3 className="text-xl font-bold text-center mb-6 text-[#3A6EA5] flex items-center justify-center">
           <IconUserPlus />
           Dar de alta paciente
         </h3>
@@ -74,7 +68,7 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
               name="nombre" 
               value={form.nombre} 
               onChange={onChange} 
-              placeholder="Nombre del paciente" 
+              placeholder="Juan" 
               className="w-full border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-teal-500 transition" 
               required 
             />
@@ -82,12 +76,12 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
 
           {/* Campo Apellido Paterno */}
           <div>
-            <label className="block text-gray-700 mb-1 font-medium text-sm">Apellido Paterno</label>
+            <label className="block text-gray-700 mb-1 font-medium text-sm">Apellido paterno</label>
             <input 
               name="apellidoP" 
               value={form.apellidoP} 
               onChange={onChange} 
-              placeholder="Apellido paterno" 
+              placeholder="Pérez" 
               className="w-full border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-teal-500 transition" 
               required 
             />
@@ -95,12 +89,12 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
 
           {/* Campo Apellido Materno */}
           <div>
-            <label className="block text-gray-700 mb-1 font-medium text-sm">Apellido Materno</label>
+            <label className="block text-gray-700 mb-1 font-medium text-sm">Apellido materno</label>
             <input 
               name="apellidoM" 
               value={form.apellidoM} 
               onChange={onChange} 
-              placeholder="Apellido materno" 
+              placeholder="Hernández" 
               className="w-full border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-teal-500 transition" 
               required 
             />
@@ -113,9 +107,10 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
               name="edad" 
               value={form.edad} 
               onChange={onChange} 
-              placeholder="Edad" 
+              placeholder="91" 
               type="number" 
               min="0" 
+              max = "100"
               className="w-full border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-teal-500 transition" 
               required 
             />
@@ -131,19 +126,19 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
           {/* Botones Estilizados */}
           <div className="flex justify-around mt-8 pt-4">
             <button 
+              type="submit" 
+              disabled={loading}
+              className={`px-6 py-2 rounded-full text-white transition transform hover:scale-105 hover:shadow-lg ${loading ? 'bg-[#2E5984]' : 'bg-[#3A6EA5] hover:bg-[#2E5984]'}`}
+            >
+              {loading ? 'Guardando...' : 'Guardar'}
+            </button>
+            <button 
               type="button" 
               onClick={handleClose} 
               disabled={loading}
               className="border border-gray-300 text-gray-700 px-6 py-2 rounded-full transition transform hover:bg-gray-100 hover:scale-105 hover:shadow"
             >
               Cancelar
-            </button>
-            <button 
-              type="submit" 
-              disabled={loading}
-              className={`px-6 py-2 rounded-full text-white transition transform hover:scale-105 hover:shadow-lg ${loading ? 'bg-teal-400' : 'bg-teal-600 hover:bg-teal-700'}`}
-            >
-              {loading ? 'Guardando...' : 'Guardar'}
             </button>
           </div>
         </form>

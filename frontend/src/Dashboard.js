@@ -1,5 +1,5 @@
 // src/Dashboard.js
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "./auth/AuthContext";
 import { 
@@ -58,8 +58,9 @@ const getInitials = (user) => {
 };
 
 export default function Dashboard() {
-  const { user, logout } = useContext(AuthContext);
+  const { user, logout, updateUser } = useContext(AuthContext);
   const navigate = useNavigate();
+  const menuRef = useRef(null);
 
   const [datos, setDatos] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -143,7 +144,40 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) setMenuOpen(false); // Cierra el menú
+    };
+
+    if (menuOpen) document.addEventListener("mousedown", handleClickOutside);
+    else document.removeEventListener("mousedown", handleClickOutside);
+    return () => { document.removeEventListener("mousedown", handleClickOutside); };
+  }, [menuOpen]);
+
   const handleLogout = () => { logout(); navigate("/auth"); };
+
+  const handleOpenInfoModal = () => {
+    setForm({
+      nombre: user.nombre,
+      apellidoP: user.apellidoP,
+      apellidoM: user.apellidoM,
+      telefono: user.telefono,
+      email: user.email
+    });
+    setMenuOpen(false);
+    setShowModal(true);
+  };
+  
+  const handleCloseInfoModal = () => {
+    setShowModal(false);
+    setForm({
+      nombre: user.nombre,
+      apellidoP: user.apellidoP,
+      apellidoM: user.apellidoM,
+      telefono: user.telefono,
+      email: user.email
+    });
+  };
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const actualizarInfo = async () => {
@@ -153,7 +187,10 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form)
       });
+
+      const updatedUser = await res.json();
       if (res.ok) {
+        updateUser(updatedUser);
         setPopup({ show: true, success: true, message: "Información actualizada" });
         setTimeout(() => {
           setPopup({ show: false, success: false, message: "" });
@@ -299,7 +336,7 @@ export default function Dashboard() {
             Dar de alta
           </button>
         </div>
-        <div className="relative">
+        <div className="relative" ref={menuRef}>
           <button 
             onClick={() => setMenuOpen(!menuOpen)} 
             className="flex items-center justify-center w-10 h-10 bg-gray-700 rounded-full text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-teal-500 transition-transform transform hover:scale-105"
@@ -311,7 +348,7 @@ export default function Dashboard() {
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-md shadow-lg z-50 animate-slide-down overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-700">
-                <p className="text-sm text-white">{user?.nombre} {user?.apellidoP}</p>
+                <p className="text-sm text-white">{user?.nombre} {user?.apellidoP} {user?.apellidoM}</p>
                 <p className="text-xs text-gray-400 truncate">{user?.email}</p>
               </div>
               <nav className="py-1">
@@ -476,7 +513,7 @@ export default function Dashboard() {
         {/* MODAL: Mi Información */}
         <InfoCuidadorModal
           open={showModal}
-          onClose={() => setShowModal(false)}
+          onClose={handleCloseInfoModal}
           form={form}
           onChange={handleChange}
           onUpdate={actualizarInfo}

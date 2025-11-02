@@ -187,6 +187,7 @@ export default function GeocerceModal({ open, onClose, paciente, onSaved }) {
   const [editandoGeocerca, setEditandoGeocerca] = useState(null);
   const [nombreGeocerca, setNombreGeocerca] = useState("");
   const [ubicacionPaciente, setUbicacion] = useState(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(null);
 
   const mapRef   = useRef(null);
   const drawnRef = useRef(null);
@@ -308,19 +309,28 @@ useEffect(() => {
     // Aquí podrías cargar las coordenadas en el mapa para edición
   };
 
-  const handleDelete = async (geocerca) => {
-    if (!window.confirm(`¿Estás seguro de eliminar esta geocerca?`)) return;
-    
+  const handleConfirmDelete = async (geocerca) => {
     try {
       setSaving(true);
       await eliminarGeocerca(geocerca._id);
-      await cargarGeocercasExistentes();
-      onSaved?.();
+      await cargarGeocercasExistentes(); // Recarga la lista
+      onSaved?.(); // Notifica al dashboard
     } catch (e) {
       setError(e.message || "Error eliminando geocerca.");
     } finally {
       setSaving(false);
+      setConfirmingDelete(null); // Oculta la confirmación
     }
+  };
+
+  const handleDeleteClick = (geocerca) => {
+    setConfirmingDelete(geocerca._id); // Muestra la confirmación para esta geocerca
+    setEditandoGeocerca(null); // Cancela cualquier edición en curso
+    setNombreGeocerca("");
+  };
+
+  const handleCancelDelete = () => {
+    setConfirmingDelete(null); // Oculta la confirmación
   };
 
   const handleCancelEdit = () => {
@@ -372,14 +382,14 @@ useEffect(() => {
                         <button
                           onClick={() => handleEdit(geocerca)}
                           className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                          disabled={saving}
+                          disabled={saving || (editandoGeocerca && editandoGeocerca._id !== geocerca._id) || confirmingDelete}
                         >
                           Editar
                         </button>
                         <button
-                          onClick={() => handleDelete(geocerca)}
+                          onClick={() => handleDeleteClick(geocerca)}
                           className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
-                          disabled={saving}
+                          disabled={saving || editandoGeocerca || confirmingDelete}
                         >
                           Eliminar
                         </button>
@@ -387,15 +397,35 @@ useEffect(() => {
                     </div>
                     {editandoGeocerca?._id === geocerca._id && (
                       <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
-                        <p className="text-xs text-blue-700">
-                          ✏️ Modo edición activo
-                        </p>
+                        <p className="text-xs text-blue-700">Modo edición activo</p>
                         <button
                           onClick={handleCancelEdit}
                           className="text-xs text-blue-600 hover:underline mt-1"
                         >
                           Cancelar edición
                         </button>
+                      </div>
+                    )}
+
+                    {confirmingDelete === geocerca._id && (
+                      <div className="mt-3 pt-3 border-t border-red-200 bg-red-50 p-3 rounded-b-lg animate-fade-in">
+                        <p className="text-sm font-medium text-red-800 text-center">
+                          ¿Estás seguro?
+                        </p>
+                        <div className="flex justify-center gap-2 mt-2">
+                          <button
+                            onClick={handleCancelDelete}
+                            className="px-3 py-1 text-xs bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={() => handleConfirmDelete(geocerca)}
+                            className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                          >
+                            Confirmar
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -513,6 +543,14 @@ useEffect(() => {
       <style>{`
         .leaflet-draw { z-index: 1400; }
         .leaflet-top, .leaflet-bottom { z-index: 1400; }
+
+        @keyframes fade-in { 
+          from { opacity: 0; } 
+          to { opacity: 1; } 
+        }
+        .animate-fade-in { 
+          animation: fade-in 0.3s ease-out both; 
+        }
       `}</style>
     </div>
   );
