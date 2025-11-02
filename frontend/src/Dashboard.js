@@ -1,5 +1,5 @@
 // src/Dashboard.js
-import React, { useContext, useEffect, useState, useRef } from "react";
+import React, { useContext, useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "./auth/AuthContext";
 import { 
@@ -8,6 +8,7 @@ import {
   liberarDispositivo
 } from "./services/pacientes";
 import { listarGeocercas } from "./services/geocercas";
+import { getUltimoDato } from "./services/datos";
 import AltaPacienteModal from "./components/AltaPacienteModal";
 import GeocerceModal from './components/GeocerceModal.jsx';
 import ViewGeocercasModal from './components/ViewGeocercasModal.jsx';
@@ -49,6 +50,46 @@ const IconInfo = () => (
 const IconLogout = () => (
   <svg className="w-5 h-5 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
 );
+const IconSearch = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+  </svg>
+);
+const IconPrev = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+  </svg>
+);
+const IconNext = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+  </svg>
+);
+const IconArrowUp = () => (
+  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+  </svg>
+);
+const IconArrowDown = () => (
+  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+  </svg>
+);
+const IconHeart = () => (
+  <svg className="w-4 h-4 mr-1 text-red-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+    <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+  </svg>
+);
+const IconOxygen = () => (
+  <svg className="w-4 h-4 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+  </svg>
+);
+const IconClock = () => (
+  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
 
 const getInitials = (user) => {
   if (!user || !user.nombre) return "??";
@@ -56,6 +97,27 @@ const getInitials = (user) => {
   const apellido = user.apellidoP || '';
   return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase();
 };
+
+function formatTimeAgo(isoDate) {
+  if (!isoDate) return "N/A";
+  const now = new Date();
+  const past = new Date(isoDate);
+  const seconds = Math.floor((now - past) / 1000);
+
+  let interval = seconds / 31536000;
+  if (interval > 1) return `hace ${Math.floor(interval)} años`;
+  interval = seconds / 2592000;
+  if (interval > 1) return `hace ${Math.floor(interval)} meses`;
+  interval = seconds / 86400;
+  if (interval > 1) return `hace ${Math.floor(interval)} días`;
+  interval = seconds / 3600;
+  if (interval > 1) return `hace ${Math.floor(interval)} horas`;
+  interval = seconds / 60;
+  if (interval > 1) return `hace ${Math.floor(interval)} min.`;
+  return `hace ${Math.floor(seconds)} seg.`;
+}
+
+const ITEMS_PER_PAGE = 5;
 
 export default function Dashboard() {
   const { user, logout, updateUser } = useContext(AuthContext);
@@ -81,6 +143,10 @@ export default function Dashboard() {
   const [altaOpen, setAltaOpen] = useState(false);
   const [pacientes, setPacientes] = useState([]);
   const API = process.env.REACT_APP_API_URL || "http://localhost:3000";
+  const [filtroNombre, setFiltroNombre] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState({ key: 'nombre', direction: 'ascending' });
+  const [ultimosDatos, setUltimosDatos] = useState({});
 
   // === NUEVO: estado para geocercas ===
   const [geofenceOpen, setGeofenceOpen] = useState(false);
@@ -100,24 +166,76 @@ export default function Dashboard() {
   const cargarPacientes = async () => {
     try {
       const data = await listarPacientes();
-      setPacientes(data);
-      // también refrescamos el conteo de geocercas por paciente
-      const counts = {};
+      setPacientes(data); 
+
+      const geocercaPromises = [];
+      const datosPromises = [];
+
       for (const p of data) {
-        try {
-          const g = await listarGeocercas(p._id);
-          counts[p._id] = Array.isArray(g) ? g.length : 0;
-        } catch {
-          counts[p._id] = 0;
-        }
+        geocercaPromises.push(
+          listarGeocercas(p._id)
+            .then(g => ({ [p._id]: Array.isArray(g) ? g.length : 0 }))
+            .catch(() => ({ [p._id]: 0 }))
+        );
+        
+        datosPromises.push(
+          getUltimoDato(p._id)
+            .then(dato => ({ [p._id]: dato }))
+            .catch(() => ({ [p._id]: null }))
+        );
       }
-      setGeofenceCounts(counts);
+
+      const [geocercaResults, datosResults] = await Promise.all([
+        Promise.all(geocercaPromises),
+        Promise.all(datosPromises)
+      ]);
+
+      const geocercaMap = geocercaResults.reduce((acc, res) => ({ ...acc, ...res }), {});
+      const datosMap = datosResults.reduce((acc, res) => ({ ...acc, ...res }), {});
+
+      setGeofenceCounts(geocercaMap);
+      setUltimosDatos(datosMap);
     } catch (e) {
       console.error("Error al listar pacientes:", e);
-      setPopup({ show: true, success: false, message: e.message || "Error al cargar pacientes" });
-      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
     }
   };
+
+  const { pacientesPaginados, totalPages } = useMemo(() => {
+    const lowerFiltro = filtroNombre.toLowerCase();
+    const filtrados = filtroNombre
+      ? pacientes.filter(p => `${p.nombre} ${p.apellidoP} ${p.apellidoM}`.toLowerCase().includes(lowerFiltro))
+      : [...pacientes]; // Usar una copia para no mutar el estado original
+    
+
+    filtrados.sort((a, b) => {
+      let aValue;
+      let bValue;
+
+      if (sortConfig.key === 'nombre') {
+        aValue = `${a.nombre} ${a.apellidoP}`.toLowerCase();
+        bValue = `${b.nombre} ${b.apellidoP}`.toLowerCase();
+      } else if (sortConfig.key === 'edad') {
+        aValue = a.edad;
+        bValue = b.edad;
+      } else if (sortConfig.key === 'geofenceCounts') {
+        aValue = geofenceCounts[a._id] ?? 0;
+        bValue = geofenceCounts[b._id] ?? 0;
+      }
+
+      if (aValue < bValue) {
+        return sortConfig.direction === 'ascending' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'ascending' ? 1 : -1;
+      }
+      return 0;
+    });
+    const total = Math.ceil(filtrados.length / ITEMS_PER_PAGE);
+    const lastIndex = currentPage * ITEMS_PER_PAGE;
+    const firstIndex = lastIndex - ITEMS_PER_PAGE;
+    const paginados = filtrados.slice(firstIndex, lastIndex);
+    return { pacientesPaginados: paginados, totalPages: total };
+  }, [pacientes, filtroNombre, currentPage, sortConfig, geofenceCounts]);
 
   useEffect(() => {
     const fetchDatos = async () => {
@@ -154,6 +272,10 @@ export default function Dashboard() {
     return () => { document.removeEventListener("mousedown", handleClickOutside); };
   }, [menuOpen]);
 
+  useEffect(() => {
+    setCurrentPage(1); // Vuelve a la página 1 cada vez que se busca
+  }, [filtroNombre]);
+
   const handleLogout = () => { logout(); navigate("/auth"); };
 
   const handleOpenInfoModal = () => {
@@ -179,6 +301,14 @@ export default function Dashboard() {
     });
   };
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+    setCurrentPage(1);
+  };
 
   const actualizarInfo = async () => {
     try {
@@ -317,6 +447,13 @@ export default function Dashboard() {
     }
   };
 
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  };
+  const handlePrevPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e0f7fa] to-[#b2ebf2] pb-10">
       {/* HEADER */}
@@ -384,92 +521,194 @@ export default function Dashboard() {
       <div className="pt-24 container mx-auto px-4">
         <div className="bg-white rounded-xl shadow-2xl p-6 z-1 animate-zoom-in mb-6">
           <h2 className="text-2xl font-semibold text-center text-gray-800 mb-6">Mis pacientes</h2>
+          <div className="relative mb-6 max-w-lg mx-auto">
+            <input
+              type="text"
+              value={filtroNombre}
+              onChange={(e) => setFiltroNombre(e.target.value)}
+              placeholder="Buscar paciente por nombre..."
+              className="w-full border border-gray-300 rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+            />
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+              <IconSearch />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <span className="text-sm font-medium text-gray-600">Ordenar por:</span>
+            <button
+              onClick={() => handleSort('nombre')}
+              className={`flex items-center px-3 py-1 text-sm rounded-full ${sortConfig.key === 'nombre' ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            >
+              Nombre
+              {sortConfig.key === 'nombre' && (
+                sortConfig.direction === 'ascending' ? <IconArrowUp /> : <IconArrowDown />
+              )}
+            </button>
+            <button
+              onClick={() => handleSort('edad')}
+              className={`flex items-center px-3 py-1 text-sm rounded-full ${sortConfig.key === 'edad' ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            >
+              Edad
+              {sortConfig.key === 'edad' && (
+                sortConfig.direction === 'ascending' ? <IconArrowUp /> : <IconArrowDown />
+              )}
+            </button>
+            <button
+              onClick={() => handleSort('geofenceCounts')}
+              className={`flex items-center px-3 py-1 text-sm rounded-full ${sortConfig.key === 'geofenceCounts' ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            >
+              Geocercas
+              {sortConfig.key === 'geofenceCounts' && (
+                sortConfig.direction === 'ascending' ? <IconArrowUp /> : <IconArrowDown />
+              )}
+            </button>
+          </div>
+
+          {pacientes.length > 0 && pacientesPaginados.length === 0 && (
+            <p className="text-center text-gray-500">
+              No se encontraron pacientes con ese nombre.
+            </p>
+          )}
+
           {pacientes.length === 0 ? (
             <p className="text-center text-gray-500">Aún no has dado de alta pacientes.</p>
           ) : (
             <div className="space-y-4">
-              {pacientes.map((p) => (
-                <div key={p._id} className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-lg">
-                  <div className="flex flex-col md:flex-row">
-                    
-                    {/* --- Columna 1: Info Paciente --- */}
-                    <div className="flex-grow p-4 pr-4">
-                      <div className="flex items-center flex-wrap gap-x-3">
-                        <span className="text-lg font-bold text-gray-800">
-                          {p.nombre} {p.apellidoP} {p.apellidoM} ({p.edad})
-                        </span>
-                        <span className="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
-                          Geocercas: {geofenceCounts[p._id] ?? 0}
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        {p.lat_dms && p.lng_dms ? (
-                          <>Ubicación (DMS): {p.lat_dms}, {p.lng_dms}</>
-                        ) : (p.latitud && p.longitud) ? (
-                          <>Ubicación (decimal): {p.latitud}, {p.longitud}</>
-                        ) : (
-                          "Sin ubicación"
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* --- Columna 2: Acciones --- */}
-                    <div className="flex-shrink-0 bg-gray-50 md:w-72 border-t md:border-t-0 md:border-l border-gray-200">
-                      <div className="p-3 flex space-x-2">
-                        <button
-                          onClick={() => abrirGeocerca(p)}
-                          className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
-                        >
-                          <IconMapPin />
-                          Configurar
-                        </button>
-                        <button
-                          onClick={() => abrirVerGeocercas(p)}
-                          className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
-                        >
-                          Ver
-                        </button>
-                      </div>
+              {pacientesPaginados.map((p) => {
+                const ultimoDato = ultimosDatos[p._id];
 
-                      {/* --- SECCIÓN DISPOSITIVO --- */}
-                      <div className="border-t border-gray-200 px-3 pt-2 pb-3">
-                        <h5 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Dispositivo</h5>
-                        <div className="flex items-center justify-between min-h-[34px]"> {/* Altura mínima para evitar saltos */}
-                          {p.dispositivo_id ? (
-                            // -- Caso 1: Dispositivo ASIGNADO --
-                            <>
-                              <span className="text-sm font-medium bg-gray-200 text-gray-800 px-2 py-1 rounded-md flex items-center overflow-hidden">
-                                <IconDevice />
-                                <span className="truncate" title={p.dispositivo_id}>{p.dispositivo_id}</span>
-                              </span>
-                              <button 
-                                onClick={() => handleLiberarClick(p)}
-                                className="text-sm flex items-center px-3 py-1.5 rounded-md bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 transition-colors"
-                              >
-                                <IconUnlink />
-                                Liberar
-                              </button>
-                            </>
+                return (
+                  <div key={p._id} className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-lg">
+                    <div className="flex flex-col md:flex-row">
+                      
+                      {/* --- Columna 1: Info Paciente --- */}
+                      <div className="flex-grow p-4 pr-4">
+                        <div className="flex items-center flex-wrap gap-x-3">
+                          <span className="text-lg font-bold text-gray-800">
+                            {p.nombre} {p.apellidoP} {p.apellidoM} ({p.edad})
+                          </span>
+                          <span className="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
+                            Geocercas: {geofenceCounts[p._id] ?? 0}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          {p.lat_dms && p.lng_dms ? (
+                            <>Ubicación (DMS): {p.lat_dms}, {p.lng_dms}</>
+                          ) : (p.latitud && p.longitud) ? (
+                            <>Ubicación (decimal): {p.latitud}, {p.longitud}</>
                           ) : (
-                            // -- Caso 2: Dispositivo NO asignado --
-                            <>
-                              <span className="text-sm italic text-gray-500">No asignado</span>
-                              <button 
-                                onClick={() => handleAsignarClick(p)}
-                                className="text-sm flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm"
-                              >
-                                <IconLink />
-                                Asignar
-                              </button>
-                            </>
+                            "Sin ubicación"
                           )}
                         </div>
-                      </div>
 
+                        <div className="border-t border-gray-100 mt-3 pt-3">
+                        {ultimoDato ? (
+                          <>
+                            <div className="flex items-center text-sm text-gray-700 mb-1">
+                              <span className="flex items-center mr-4">
+                                <IconHeart /> {ultimoDato.frecuencia} bpm
+                              </span>
+                              <span className="flex items-center">
+                                <IconOxygen /> {ultimoDato.oxigeno} %
+                              </span>
+                            </div>
+                            <div className="flex items-center text-xs text-gray-500">
+                              <IconClock /> {formatTimeAgo(ultimoDato.fecha)}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-sm italic text-gray-400">
+                            Sin datos vitales aún.
+                          </span>
+                        )}
+                      </div>
+                      </div>
+                      
+                      {/* --- Columna 2: Acciones --- */}
+                      <div className="flex-shrink-0 bg-gray-50 md:w-72 border-t md:border-t-0 md:border-l border-gray-200">
+                        <div className="p-3 flex space-x-2">
+                          <button
+                            onClick={() => abrirGeocerca(p)}
+                            className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
+                          >
+                            <IconMapPin />
+                            Configurar
+                          </button>
+                          <button
+                            onClick={() => abrirVerGeocercas(p)}
+                            className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
+                          >
+                            Ver
+                          </button>
+                        </div>
+
+                        {/* --- SECCIÓN DISPOSITIVO --- */}
+                        <div className="border-t border-gray-200 px-3 pt-2 pb-3">
+                          <h5 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Dispositivo</h5>
+                          <div className="flex items-center justify-between min-h-[34px]"> {/* Altura mínima para evitar saltos */}
+                            {p.dispositivo_id ? (
+                              // -- Caso 1: Dispositivo ASIGNADO --
+                              <>
+                                <span className="text-sm font-medium bg-gray-200 text-gray-800 px-2 py-1 rounded-md flex items-center overflow-hidden">
+                                  <IconDevice />
+                                  <span className="truncate" title={p.dispositivo_id}>{p.dispositivo_id}</span>
+                                </span>
+                                <button 
+                                  onClick={() => handleLiberarClick(p)}
+                                  className="text-sm flex items-center px-3 py-1.5 rounded-md bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 transition-colors"
+                                >
+                                  <IconUnlink />
+                                  Liberar
+                                </button>
+                              </>
+                            ) : (
+                              // -- Caso 2: Dispositivo NO asignado --
+                              <>
+                                <span className="text-sm italic text-gray-500">No asignado</span>
+                                <button 
+                                  onClick={() => handleAsignarClick(p)}
+                                  className="text-sm flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm"
+                                >
+                                  <IconLink />
+                                  Asignar
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-gray-200 pt-6 mt-6">
+              <button
+                onClick={handlePrevPage}
+                disabled={currentPage === 1}
+                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <IconPrev />
+                <span className="ml-2">Anterior</span>
+              </button>
+              
+              <span className="text-sm text-gray-700">
+                Página <span className="font-semibold">{currentPage}</span> de <span className="font-semibold">{totalPages}</span>
+              </span>
+              
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="mr-2">Siguiente</span>
+                <IconNext />
+              </button>
             </div>
           )}
         </div>
