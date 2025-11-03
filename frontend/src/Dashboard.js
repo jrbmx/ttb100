@@ -90,6 +90,23 @@ const IconClock = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
 );
+const IconHome = () => (
+  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+  </svg>
+);
+const IconAlert = () => (
+  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+  </svg>
+);
+const IconLocationOff = () => (
+  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6" />
+  </svg>
+);
 
 const getInitials = (user) => {
   if (!user || !user.nombre) return "??";
@@ -115,6 +132,49 @@ function formatTimeAgo(isoDate) {
   interval = seconds / 60;
   if (interval > 1) return `hace ${Math.floor(interval)} min.`;
   return `hace ${Math.floor(seconds)} seg.`;
+}
+
+function parseLatitud(val) {
+  if (typeof val === 'number') return val;
+  if (typeof val !== 'string' || val === "") return 91.0; // Inválido
+  try {
+    const [numero, direccion] = val.split(' ');
+    const num = parseFloat(numero);
+    if (isNaN(num)) return 91.0;
+    if (direccion && direccion.toUpperCase() === 'S') return num * -1;
+    return num;
+  } catch (e) {
+    return 91.0;
+  }
+}
+
+function parseLongitud(val) {
+  if (typeof val === 'number') return val;
+  if (typeof val !== 'string' || val === "") return 181.0; // Inválido
+  try {
+    const [numero, direccion] = val.split(' ');
+    const num = parseFloat(numero);
+    if (isNaN(num)) return 181.0;
+    if (direccion && direccion.toUpperCase() === 'W') return num * -1;
+    return num;
+  } catch (e) {
+    return 181.0;
+  }
+}
+
+function isPointInPolygon(point, polygon) {
+  let isInside = false;
+  const { lat, lng } = point;
+  
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lat, yi = polygon[i].lng;
+    const xj = polygon[j].lat, yj = polygon[j].lng;
+
+    const intersect = ((yi > lng) !== (yj > lng))
+      && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+    if (intersect) isInside = !isInside;
+  }
+  return isInside;
 }
 
 const ITEMS_PER_PAGE = 5;
@@ -152,7 +212,8 @@ export default function Dashboard() {
   const [geofenceOpen, setGeofenceOpen] = useState(false);
   const [viewGeocercasOpen, setViewGeocercasOpen] = useState(false);
   const [pacienteSeleccionado, setPacienteSeleccionado] = useState(null);
-  const [geofenceCounts, setGeofenceCounts] = useState({}); // { [pacienteId]: n }
+  const [geofenceCounts, setGeofenceCounts] = useState({});
+  const [geocercasCompletas, setGeocercasCompletas] = useState({});
   
   // === ESTADO PARA MODALES DE DISPOSITIVO ===
   const [showLiberarConfirm, setShowLiberarConfirm] = useState(false);
@@ -174,14 +235,14 @@ export default function Dashboard() {
       for (const p of data) {
         geocercaPromises.push(
           listarGeocercas(p._id)
-            .then(g => ({ [p._id]: Array.isArray(g) ? g.length : 0 }))
-            .catch(() => ({ [p._id]: 0 }))
+            .then(g => ({ id: p._id, geocercas: Array.isArray(g) ? g : [] }))
+            .catch(() => ({ id: p._id, geocercas: [] }))
         );
         
         datosPromises.push(
           getUltimoDato(p._id)
-            .then(dato => ({ [p._id]: dato }))
-            .catch(() => ({ [p._id]: null }))
+            .then(dato => ({ id: p._id, dato: dato }))
+            .catch(() => ({ id: p._id, dato: null }))
         );
       }
 
@@ -190,11 +251,14 @@ export default function Dashboard() {
         Promise.all(datosPromises)
       ]);
 
-      const geocercaMap = geocercaResults.reduce((acc, res) => ({ ...acc, ...res }), {});
-      const datosMap = datosResults.reduce((acc, res) => ({ ...acc, ...res }), {});
+      const geocercasMap = geocercaResults.reduce((acc, res) => ({ ...acc, [res.id]: res.geocercas }), {});
+      const geocercaCountMap = geocercaResults.reduce((acc, res) => ({ ...acc, [res.id]: res.geocercas.length }), {});
+      const datosMap = datosResults.reduce((acc, res) => ({ ...acc, [res.id]: res.dato }), {});
 
-      setGeofenceCounts(geocercaMap);
+      setGeocercasCompletas(geocercasMap);
+      setGeofenceCounts(geocercaCountMap);
       setUltimosDatos(datosMap);
+
     } catch (e) {
       console.error("Error al listar pacientes:", e);
     }
@@ -454,11 +518,38 @@ export default function Dashboard() {
     setCurrentPage(prev => Math.max(prev - 1, 1));
   };
 
+  const getLocationStatus = (dato, geocercas) => {
+    if (!dato || !dato.latitud || !dato.longitud) {
+      return { status: "Sin ubicación", icon: IconLocationOff, color: "text-gray-400" };
+    }
+    
+    const lat = parseLatitud(dato.latitud);
+    const lng = parseLongitud(dato.longitud);
+
+    if (lat > 90 || lat < -90 || lng > 180 || lng < -180) {
+      return { status: "Sin ubicación (Sin señal GPS)", icon: IconLocationOff, color: "text-gray-400" };
+    }
+
+    const point = { lat, lng };
+
+    if (!geocercas || geocercas.length === 0) {
+      return { status: "Ubicación detectada", icon: IconAlert, color: "text-gray-500" };
+    }
+
+    for (const geofence of geocercas) {
+      if (geofence.coords && isPointInPolygon(point, geofence.coords)) {
+        return { status: `En ${geofence.nombre}`, icon: IconHome, color: "text-green-600" };
+      }
+    }
+
+    return { status: "Fuera de zona segura", icon: IconAlert, color: "text-red-600" };
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#e0f7fa] to-[#b2ebf2] pb-10">
+    <div className="min-h-screen bg-[#EEF6F8] pb-10">
       {/* HEADER */}
       <header
-        className="fixed top-0 left-0 w-full bg-gradient-to-r from-[#3f535e] to-[#06354f] py-4 shadow-lg flex justify-between items-center px-6 animate-fade-in"
+        className="fixed top-0 left-0 w-full bg-[#0F3D56] py-4 shadow-lg flex justify-between items-center px-6 animate-fade-in"
         style={{ zIndex: 1000 }}
       >
         <div className="flex items-center space-x-3">
@@ -476,7 +567,7 @@ export default function Dashboard() {
         <div className="relative" ref={menuRef}>
           <button 
             onClick={() => setMenuOpen(!menuOpen)} 
-            className="flex items-center justify-center w-10 h-10 bg-gray-700 rounded-full text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-teal-500 transition-transform transform hover:scale-105"
+            className="flex items-center justify-center w-10 h-10 bg-white rounded-full text-gray-700 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-teal-500 transition-transform transform hover:scale-105"
           >
             {getInitials(user)}
           </button>
@@ -520,7 +611,7 @@ export default function Dashboard() {
       {/* CONTENIDO */}
       <div className="pt-24 container mx-auto px-4">
         <div className="bg-white rounded-xl shadow-2xl p-6 z-1 animate-zoom-in mb-6">
-          <h2 className="text-2xl font-semibold text-center text-gray-800 mb-6">Mis pacientes</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-center text-gray-800 mb-6">PANEL DE PACIENTES</h2>
           <div className="relative mb-6 max-w-lg mx-auto">
             <input
               type="text"
@@ -577,6 +668,8 @@ export default function Dashboard() {
             <div className="space-y-4">
               {pacientesPaginados.map((p) => {
                 const ultimoDato = ultimosDatos[p._id];
+                const geocercasDelPaciente = geocercasCompletas[p._id] || [];
+                const location = getLocationStatus(ultimoDato, geocercasDelPaciente);
 
                 return (
                   <div key={p._id} className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-lg">
@@ -592,14 +685,9 @@ export default function Dashboard() {
                             Geocercas: {geofenceCounts[p._id] ?? 0}
                           </span>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          {p.lat_dms && p.lng_dms ? (
-                            <>Ubicación (DMS): {p.lat_dms}, {p.lng_dms}</>
-                          ) : (p.latitud && p.longitud) ? (
-                            <>Ubicación (decimal): {p.latitud}, {p.longitud}</>
-                          ) : (
-                            "Sin ubicación"
-                          )}
+                        <div className={`text-sm mt-2 font-medium flex items-center ${location.color}`}>
+                          <location.icon />
+                          {location.status}
                         </div>
 
                         <div className="border-t border-gray-100 mt-3 pt-3">
@@ -639,7 +727,7 @@ export default function Dashboard() {
                             onClick={() => abrirVerGeocercas(p)}
                             className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
                           >
-                            Ver
+                            Ver datos
                           </button>
                         </div>
 
