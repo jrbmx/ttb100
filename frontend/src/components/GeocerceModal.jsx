@@ -1,14 +1,12 @@
 // src/components/GeocerceModal.jsx
 import { useEffect, useRef, useState, useCallback } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 
 import { listarGeocercas, crearGeocerca, actualizarGeocerca, eliminarGeocerca } from "../services/geocercas";
-import { mostrarUbicacionPaciente } from "../services/pacientes";
-
 
 /* ======================== Capa de dibujo ======================== */
 function DrawLayer({ paciente, geocercasExistentes, onReady, onError, onPluginOK }) {
@@ -186,7 +184,6 @@ export default function GeocerceModal({ open, onClose, paciente, onSaved }) {
   const [geocercasExistentes, setGeocercasExistentes] = useState([]);
   const [editandoGeocerca, setEditandoGeocerca] = useState(null);
   const [nombreGeocerca, setNombreGeocerca] = useState("");
-  const [ubicacionPaciente, setUbicacion] = useState(null);
   const [confirmingDelete, setConfirmingDelete] = useState(null);
 
   const mapRef   = useRef(null);
@@ -216,28 +213,8 @@ export default function GeocerceModal({ open, onClose, paciente, onSaved }) {
       setError("");
       setMountKey((k) => k + 1);
       cargarGeocercasExistentes();
-      (async () => {
-        try {
-          if (paciente?._id) {
-            const ubi = await mostrarUbicacionPaciente(paciente._id);
-            const sinGPS = typeof ubi?.latitud === 'number' && typeof ubi?.longitud === 'number' ? (ubi.latitud >= 90.999 || ubi.longitud >= 180.999): true;
-            setUbicacion(sinGPS ? null : ubi);
-          } else {
-            setUbicacion(null);
-          }
-        } catch {
-          setUbicacion(null);
-        }
-      })();
     }
   }, [open, paciente, cargarGeocercasExistentes]);
-
-  // Recentrar si hay ubicación
-useEffect(() => {
-  if (mapRef.current && ubicacionPaciente && Number.isFinite(ubicacionPaciente.latitud) && Number.isFinite(ubicacionPaciente.longitud)) {
-    mapRef.current.setView([ubicacionPaciente.latitud, ubicacionPaciente.longitud], 15, { animate: false });
-  }
-}, [ubicacionPaciente]);
 
   const handleReady = ({ drawnGroup }) => (drawnRef.current = drawnGroup);
 
@@ -466,18 +443,6 @@ useEffect(() => {
                   onPluginOK={() => setError("")}
                   onError={(msg) => setError(msg)}
                 />
-                {ubicacionPaciente && Number.isFinite(ubicacionPaciente.latitud) && Number.isFinite(ubicacionPaciente.longitud) && (
-                  <Marker position={[ubicacionPaciente.latitud, ubicacionPaciente.longitud]}>
-                    <Popup>
-                      <div style={{ minwidth: 180 }}>
-                        <b>{paciente?.nombre} {paciente?.apellidoP}</b><br />
-                        Lat: {ubicacionPaciente.latitud}<br />
-                        Lon: {ubicacionPaciente.longitud}<br />
-                        {ubicacionPaciente.fecha && <>Fecha: {new Date(ubicacionPaciente.fecha).toLocaleString("es-MX")}</>}
-                        </div>
-                        </Popup>
-                        </Marker>
-                )}
               </MapContainer>
             </div>
 

@@ -177,7 +177,7 @@ function isPointInPolygon(point, polygon) {
   return isInside;
 }
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 2;
 
 export default function Dashboard() {
   const { user, logout, updateUser } = useContext(AuthContext);
@@ -545,6 +545,22 @@ export default function Dashboard() {
     return { status: "Fuera de zona segura", icon: IconAlert, color: "text-red-600" };
   };
 
+  let coordenadasParaMapa = null;
+  let ultimoDatoDelPaciente = null;
+
+  if (pacienteSeleccionado && ultimosDatos[pacienteSeleccionado._id]) {
+    
+    const dato = ultimosDatos[pacienteSeleccionado._id];
+    ultimoDatoDelPaciente = dato;
+
+    const lat = parseLatitud(dato.latitud);
+    const lng = parseLongitud(dato.longitud);
+    
+    if (lat <= 90 && lat >= -90 && lng <= 180 && lng >= -180) 
+      coordenadasParaMapa = { lat, lng };
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#EEF6F8] pb-10">
       {/* HEADER */}
@@ -891,6 +907,8 @@ export default function Dashboard() {
           open={viewGeocercasOpen} 
           paciente={pacienteSeleccionado} 
           onClose={cerrarVerGeocercas} 
+          coordenadas={coordenadasParaMapa}
+          ultimoDato={ultimoDatoDelPaciente}
         />
 
         {/* === MODAL: Confirmar Liberar Dispositivo === */}
