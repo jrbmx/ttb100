@@ -9,20 +9,11 @@ function authHeaders() {
   };
 }
 
-export async function getUltimoDato(pacienteId) {
-  const res = await fetch(`${API}/api/datos/reciente/${pacienteId}`, { 
-    headers: authHeaders() 
-  });
-  
-  if (res.status === 404) {
-    return null;
-  }
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.mensaje || 'Error obteniendo el último dato');
-  }
-  return data
+function esGpsValido(dato) {
+  if (!dato) return false;
+  const isWifi = (dato.latitud === 91.0 || dato.longitud === 181.0);
+  return !isWifi;
 }
 
 export async function getTodosLosDatos(pacienteId) {
@@ -34,4 +25,23 @@ export async function getTodosLosDatos(pacienteId) {
         throw new Error(data.mensaje || 'Error obteniendo todos los datos');
     }
     return data;
+}
+
+export async function getDatosRelevantes(pacienteId) {
+  const todosLosDatos = await getTodosLosDatos(pacienteId);
+
+  if (!todosLosDatos || todosLosDatos.length === 0) {
+    return {
+      ultimoDato: null,
+      ultimoGpsValido: null
+    };
+  }
+
+  const ultimoDato = todosLosDatos[0];
+  const ultimoGpsValido = todosLosDatos.find(dato => esGpsValido(dato)) || null;
+
+  return {
+    ultimoDato,
+    ultimoGpsValido
+  };
 }

@@ -8,7 +8,7 @@ import {
   liberarDispositivo
 } from "./services/pacientes";
 import { listarGeocercas } from "./services/geocercas";
-import { getUltimoDato } from "./services/datos";
+import { getDatosRelevantes } from "./services/datos";
 import AltaPacienteModal from "./components/AltaPacienteModal";
 import GeocerceModal from './components/GeocerceModal.jsx';
 import ViewGeocercasModal from './components/ViewGeocercasModal.jsx';
@@ -107,6 +107,13 @@ const IconLocationOff = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6" />
   </svg>
 );
+const IconWifi = () => (
+  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.071-7.071a10 10 0 0114.142 0M1.393 9.393a15 15 0 0121.214 0" />
+  </svg>
+);
+
+const ITEMS_PER_PAGE = 5;
 
 const getInitials = (user) => {
   if (!user || !user.nombre) return "??";
@@ -134,34 +141,6 @@ function formatTimeAgo(isoDate) {
   return `hace ${Math.floor(seconds)} seg.`;
 }
 
-function parseLatitud(val) {
-  if (typeof val === 'number') return val;
-  if (typeof val !== 'string' || val === "") return 91.0; // Inválido
-  try {
-    const [numero, direccion] = val.split(' ');
-    const num = parseFloat(numero);
-    if (isNaN(num)) return 91.0;
-    if (direccion && direccion.toUpperCase() === 'S') return num * -1;
-    return num;
-  } catch (e) {
-    return 91.0;
-  }
-}
-
-function parseLongitud(val) {
-  if (typeof val === 'number') return val;
-  if (typeof val !== 'string' || val === "") return 181.0; // Inválido
-  try {
-    const [numero, direccion] = val.split(' ');
-    const num = parseFloat(numero);
-    if (isNaN(num)) return 181.0;
-    if (direccion && direccion.toUpperCase() === 'W') return num * -1;
-    return num;
-  } catch (e) {
-    return 181.0;
-  }
-}
-
 function isPointInPolygon(point, polygon) {
   let isInside = false;
   const { lat, lng } = point;
@@ -176,8 +155,6 @@ function isPointInPolygon(point, polygon) {
   }
   return isInside;
 }
-
-const ITEMS_PER_PAGE = 2;
 
 export default function Dashboard() {
   const { user, logout, updateUser } = useContext(AuthContext);
@@ -240,9 +217,9 @@ export default function Dashboard() {
         );
         
         datosPromises.push(
-          getUltimoDato(p._id)
-            .then(dato => ({ id: p._id, dato: dato }))
-            .catch(() => ({ id: p._id, dato: null }))
+          getDatosRelevantes(p._id)
+            .then(datos => ({ id: p._id, datos })) // datos = { ultimoDato, ultimoGpsValido }
+            .catch(() => ({ id: p._id, datos: { ultimoDato: null, ultimoGpsValido: null } }))
         );
       }
 
@@ -253,7 +230,7 @@ export default function Dashboard() {
 
       const geocercasMap = geocercaResults.reduce((acc, res) => ({ ...acc, [res.id]: res.geocercas }), {});
       const geocercaCountMap = geocercaResults.reduce((acc, res) => ({ ...acc, [res.id]: res.geocercas.length }), {});
-      const datosMap = datosResults.reduce((acc, res) => ({ ...acc, [res.id]: res.dato }), {});
+      const datosMap = datosResults.reduce((acc, res) => ({ ...acc, [res.id]: res.datos }), {});
 
       setGeocercasCompletas(geocercasMap);
       setGeofenceCounts(geocercaCountMap);
@@ -518,48 +495,63 @@ export default function Dashboard() {
     setCurrentPage(prev => Math.max(prev - 1, 1));
   };
 
-  const getLocationStatus = (dato, geocercas) => {
-    if (!dato || !dato.latitud || !dato.longitud) {
+  const getLocationStatus = (datosRelevantes, geocercas) => {
+    const { ultimoDato, ultimoGpsValido } = datosRelevantes;
+
+    if (!ultimoDato) {
       return { status: "Sin ubicación", icon: IconLocationOff, color: "text-gray-400" };
     }
-    
-    const lat = parseLatitud(dato.latitud);
-    const lng = parseLongitud(dato.longitud);
 
-    if (lat > 90 || lat < -90 || lng > 180 || lng < -180) {
-      return { status: "Sin ubicación (Sin señal GPS)", icon: IconLocationOff, color: "text-gray-400" };
+    const geocercasDisponibles = geocercas || [];
+    let locationPoint = null;
+    let locationStatus = "";
+
+    const isWifi = (ultimoDato.latitud === 91.0 || ultimoDato.longitud === 181.0);
+    if (isWifi) {
+      locationStatus = "Conectado a WiFi";
+      if (ultimoGpsValido) {
+        locationPoint = { lat: ultimoGpsValido.latitud, lng: ultimoGpsValido.longitud };
+      }
+    } else {
+      locationPoint = { lat: ultimoDato.latitud, lng: ultimoDato.longitud };
     }
 
-    const point = { lat, lng };
+    let enGeocerca = false;
+    let nombreGeocerca = "";
 
-    if (!geocercas || geocercas.length === 0) {
-      return { status: "Ubicación detectada", icon: IconAlert, color: "text-gray-500" };
-    }
-
-    for (const geofence of geocercas) {
-      if (geofence.coords && isPointInPolygon(point, geofence.coords)) {
-        return { status: `En ${geofence.nombre}`, icon: IconHome, color: "text-green-600" };
+    if (locationPoint && geocercasDisponibles.length > 0) {
+      for (const geofence of geocercasDisponibles) {
+        if (geofence.coords && isPointInPolygon(locationPoint, geofence.coords)) {
+          enGeocerca = true;
+          nombreGeocerca = geofence.nombre;
+          break;
+        }
       }
     }
 
-    return { status: "Fuera de zona segura", icon: IconAlert, color: "text-red-600" };
+    if (locationStatus === "Conectado a WiFi") {
+      if (enGeocerca) {
+        return { status: `Conectado a WiFi (Última ubicación en ${nombreGeocerca})`, icon: IconWifi, color: "text-green-600" };
+      } else if (locationPoint) { 
+        // Está en WiFi, pero su último GPS válido estaba "Fuera"
+        return { status: `Conectado a WiFi (Fuera de zona)`, icon: IconWifi, color: "text-yellow-600" };
+      } else {
+        // Está en WiFi, pero NO tenemos historial de GPS
+        return { status: "Conectado a WiFi", icon: IconWifi, color: "text-gray-500" };
+      }
+    }
+
+    if (locationPoint) {
+      if (enGeocerca) {
+        return { status: `En ${nombreGeocerca}`, icon: IconHome, color: "text-green-600" };
+      } else {
+        return { status: "Fuera de zona segura", icon: IconAlert, color: "text-red-600" };
+      }
+    }
+
+    return { status: "Sin ubicación", icon: IconLocationOff, color: "text-gray-400" };
   };
 
-  let coordenadasParaMapa = null;
-  let ultimoDatoDelPaciente = null;
-
-  if (pacienteSeleccionado && ultimosDatos[pacienteSeleccionado._id]) {
-    
-    const dato = ultimosDatos[pacienteSeleccionado._id];
-    ultimoDatoDelPaciente = dato;
-
-    const lat = parseLatitud(dato.latitud);
-    const lng = parseLongitud(dato.longitud);
-    
-    if (lat <= 90 && lat >= -90 && lng <= 180 && lng >= -180) 
-      coordenadasParaMapa = { lat, lng };
-    }
-  }
 
   return (
     <div className="min-h-screen bg-[#EEF6F8] pb-10">
@@ -683,9 +675,11 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-4">
               {pacientesPaginados.map((p) => {
-                const ultimoDato = ultimosDatos[p._id];
+                const datosRelevantes = ultimosDatos[p._id] || { ultimoDato: null, ultimoGpsValido: null };
                 const geocercasDelPaciente = geocercasCompletas[p._id] || [];
-                const location = getLocationStatus(ultimoDato, geocercasDelPaciente);
+                const ultimoDato = datosRelevantes.ultimoDato; 
+              
+                const location = getLocationStatus(datosRelevantes, geocercasDelPaciente);
 
                 return (
                   <div key={p._id} className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-lg">
@@ -907,8 +901,6 @@ export default function Dashboard() {
           open={viewGeocercasOpen} 
           paciente={pacienteSeleccionado} 
           onClose={cerrarVerGeocercas} 
-          coordenadas={coordenadasParaMapa}
-          ultimoDato={ultimoDatoDelPaciente}
         />
 
         {/* === MODAL: Confirmar Liberar Dispositivo === */}
