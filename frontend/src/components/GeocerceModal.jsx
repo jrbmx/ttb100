@@ -1,5 +1,5 @@
 // src/components/GeocerceModal.jsx
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, memo } from "react";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 
@@ -8,51 +8,25 @@ import "leaflet-draw/dist/leaflet.draw.css";
 
 import { listarGeocercas, crearGeocerca, actualizarGeocerca, eliminarGeocerca } from "../services/geocercas";
 
+const cdmxCenter = [19.4326, -99.1332]; 
+// Límites aproximados (Sur, Oeste, Norte, Este)
+const cdmxBounds = L.latLngBounds(
+  L.latLng(19.0, -99.5), // Esquina Suroeste
+  L.latLng(19.8, -98.7)  // Esquina Noreste
+);
+const IconLocate = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 11-8 0 4 4 0 018 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.206" />
+  </svg>
+);
+
+
 /* ======================== Capa de dibujo ======================== */
-function DrawLayer({ paciente, geocercasExistentes, onReady, onError, onPluginOK }) {
+const DrawLayer = memo(function DrawLayer({ paciente, geocercasExistentes, onReady, onError, onPluginOK }) {
   const map = useMap();
   const drawnRef = useRef(null);   
   const existRef = useRef(null);  
   const ctlRef   = useRef(null);
-
-  // Repintar geocercas cuando cambien
-  useEffect(() => {
-    console.log("DrawLayer recibió geocercas:", geocercasExistentes);
-    if (existRef.current) {
-      existRef.current.clearLayers();
-      (Array.isArray(geocercasExistentes) ? geocercasExistentes : []).forEach((g) => {
-        try {
-          const raw = g.coords || g.polygon || g.vertices || [];
-          if (Array.isArray(raw) && raw.length >= 3) {
-            // Convertir coordenadas a formato [lat, lng]
-            const validCoords = raw.map(point => {
-              if (Array.isArray(point) && point.length >= 2) {
-                // Formato [lat, lng]
-                return [point[0], point[1]];
-              } else if (point && typeof point === 'object' && 'lat' in point && 'lng' in point) {
-                // Formato {lat, lng}
-                return [point.lat, point.lng];
-              }
-              return null;
-            }).filter(coord => 
-              coord && 
-              typeof coord[0] === 'number' && 
-              typeof coord[1] === 'number'
-            );
-            
-            if (validCoords.length >= 3) {
-              L.polygon(
-                validCoords.map(([lat, lng]) => L.latLng(lat, lng)),
-                { color: "#2563eb", fillColor: "#2563eb", fillOpacity: 0.2 }
-              ).addTo(existRef.current);
-            }
-          }
-        } catch (error) {
-          console.error("Error procesando geocerca:", error, g);
-        }
-      });
-    }
-  }, [geocercasExistentes]);
 
   useEffect(() => {
     let mounted = true;
@@ -174,20 +148,30 @@ function DrawLayer({ paciente, geocercasExistentes, onReady, onError, onPluginOK
   }, [map, paciente, geocercasExistentes, onReady, onError, onPluginOK]);
 
   return null;
-}
+});
 
 /* ======================== Modal ======================== */
 export default function GeocerceModal({ open, onClose, paciente, onSaved }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [mountKey, setMountKey] = useState(0); // remount del mapa por apertura
   const [geocercasExistentes, setGeocercasExistentes] = useState([]);
   const [editandoGeocerca, setEditandoGeocerca] = useState(null);
   const [nombreGeocerca, setNombreGeocerca] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(null);
-
-  const mapRef   = useRef(null);
+  const [mapInstance, setMapInstance] = useState(null);
+  const [isLocating, setIsLocating] = useState(false);
   const drawnRef = useRef(null);
+  const handleReady = useCallback(({ drawnGroup }) => {
+    drawnRef.current = drawnGroup;
+  }, []); // El array vacío significa que NUNCA se volverá a crear
+
+  const handlePluginOK = useCallback(() => {
+    setError("");
+  }, []); // Nunca se recrea
+
+  const handleError = useCallback((msg) => {
+    setError(msg);
+  }, []); // Nunca se recrea
 
   const cargarGeocercasExistentes = useCallback(async () => {
     if (!paciente?._id) return;
@@ -211,12 +195,11 @@ export default function GeocerceModal({ open, onClose, paciente, onSaved }) {
   useEffect(() => {
     if (open) {
       setError("");
-      setMountKey((k) => k + 1);
+      setIsLocating(false);
       cargarGeocercasExistentes();
     }
   }, [open, paciente, cargarGeocercasExistentes]);
 
-  const handleReady = ({ drawnGroup }) => (drawnRef.current = drawnGroup);
 
   const handleSave = async () => {
     try {
@@ -261,11 +244,6 @@ export default function GeocerceModal({ open, onClose, paciente, onSaved }) {
         }
         await crearGeocerca(paciente._id, polygonCoords, nombreGeocerca);
         setNombreGeocerca("");
-      }
-
-      // Evita errores de animación al cerrar
-      if (mapRef.current) {
-        try { mapRef.current.stop(); } catch {}
       }
 
       // Limpia nuevos y notifica
@@ -317,6 +295,39 @@ export default function GeocerceModal({ open, onClose, paciente, onSaved }) {
       drawnRef.current.clearLayers();
     }
   };
+
+  const handleLocate = useCallback(() => {
+    if (!mapInstance) {
+      setError("El mapa no está listo. Intenta de nuevo.");
+      return;
+    }
+
+    setIsLocating(true);
+    setError(""); 
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latLng = [position.coords.latitude, position.coords.longitude];
+        
+        if (cdmxBounds.contains(latLng)) {
+          mapInstance.flyTo(latLng, 16);
+        } else {
+          setError("Tu ubicación actual está fuera del área permitida (CDMX).");
+          mapInstance.flyTo(latLng, 16); 
+        }
+        setIsLocating(false);
+      },
+      (err) => {
+        if (err.code === 1) { 
+          setError("Permiso de ubicación denegado.");
+        } else {
+          setError("No se pudo obtener la ubicación.");
+        }
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  }, [mapInstance]);
 
   if (!open) return null;
 
@@ -414,22 +425,39 @@ export default function GeocerceModal({ open, onClose, paciente, onSaved }) {
 
         {/* Panel principal con mapa */}
         <div className="flex-1 flex flex-col">
-          <div className="p-4 border-b">
+          <div className="p-4 border-b flex justify-between items-center">
             <h3 className="text-lg font-semibold">
               {editandoGeocerca ? "Editar geocerca" : "Agregar nueva geocerca"}
             </h3>
+            <button
+              onClick={handleLocate}
+              disabled={isLocating || !mapInstance}
+              className="flex items-center px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50"
+              title="Usar mi ubicación actual"
+            >
+              {isLocating ? (
+                <svg className="w-5 h-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <IconLocate />
+              )}
+              <span className="ml-2 hidden sm:block">Mi ubicación</span>
+            </button>
           </div>
 
           <div className="flex-1 p-4 flex flex-col">
             <div className="h-[350px] w-full rounded overflow-hidden flex-shrink-0">
               <MapContainer
-                key={mountKey}
-                center={[19.4326, -99.1332]}
-                zoom={13}
+                center={cdmxCenter}
+                zoom={10}
+                minZoom={10}
+                maxBounds={cdmxBounds}
                 zoomAnimation={false}
                 fadeAnimation={false}
                 markerZoomAnimation={false}
-                whenCreated={(m) => (mapRef.current = m)}
+                ref={setMapInstance}
                 style={{ height: "100%", width: "100%" }}
               >
                 <TileLayer
@@ -440,8 +468,8 @@ export default function GeocerceModal({ open, onClose, paciente, onSaved }) {
                   paciente={paciente}
                   geocercasExistentes={geocercasExistentes}
                   onReady={handleReady}
-                  onPluginOK={() => setError("")}
-                  onError={(msg) => setError(msg)}
+                  onPluginOK={handlePluginOK}
+                  onError={handleError}
                 />
               </MapContainer>
             </div>
@@ -506,9 +534,6 @@ export default function GeocerceModal({ open, onClose, paciente, onSaved }) {
 
       {/* Asegura que la barra de draw quede encima del modal */}
       <style>{`
-        .leaflet-draw { z-index: 1400; }
-        .leaflet-top, .leaflet-bottom { z-index: 1400; }
-
         @keyframes fade-in { 
           from { opacity: 0; } 
           to { opacity: 1; } 

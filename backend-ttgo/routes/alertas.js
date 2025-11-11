@@ -12,7 +12,7 @@ const auth   = require('../middleware/auth');
 router.get('/', auth, async (req, res) => {
   try {
     const alertas = await Alerta.find({ cuidador: req.user.id })
-                                .populate('paciente', 'nombre apellidoP') // Trae el nombre del paciente
+                                .populate('paciente', 'nombre apellidoP apellidoM') // Trae el nombre del paciente
                                 .sort({ createdAt: -1 }); // Más nuevas primero
     res.json(alertas);
   } catch (e) {

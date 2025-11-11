@@ -52,7 +52,7 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
       onClick={handleClose} // Cierra al hacer clic fuera
     >
       <div 
-        className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl transform transition-all duration-500 animate-fade-in-up"
+        className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl transform transition-all duration-500 animate-pop-from-fab"
         onClick={(e) => e.stopPropagation()} // Evita que se cierre al hacer clic dentro
       >
         <h3 className="text-xl font-bold text-center mb-6 text-[#3A6EA5] flex items-center justify-center">

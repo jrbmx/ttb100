@@ -2,8 +2,8 @@
 import React, { useContext, useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "./auth/AuthContext";
-import { 
-  listarPacientes, 
+import {
+  listarPacientes,
   asignarDispositivo,
   liberarDispositivo
 } from "./services/pacientes";
@@ -17,6 +17,8 @@ import DeleteConfirmModal from "./components/DeleteConfirmModal.jsx";
 import LiberarDispositivoModal from "./components/LiberarDispositivoModal.jsx";
 import AsignarDispositivoModal from "./components/AsignarDispositivoModal.jsx";
 import NotificacionPopup from "./components/NotificacionPopup.jsx";
+import { listarAlertas } from "./services/alertas";
+import AlertasView from "./components/AlertasView.jsx";
 
 const IconDevice = () => (
   <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -37,11 +39,6 @@ const IconLink = () => (
 const IconUnlink = () => (
   <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244m-9.317 2.025a4.5 4.5 0 01-1.242-7.244l4.5-4.5a4.5 4.5 0 016.364 6.364l-1.757 1.757m-13.35.622l-1.757 1.757a4.5 4.5 0 006.364 6.364l4.5-4.5a4.5 4.5 0 00-1.242-7.244" />
-  </svg>
-);
-const IconUserPlus = () => (
-  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
   </svg>
 );
 const IconInfo = () => (
@@ -112,6 +109,16 @@ const IconWifi = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.071-7.071a10 10 0 0114.142 0M1.393 9.393a15 15 0 0121.214 0" />
   </svg>
 );
+const IconPlus = () => (
+  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+  </svg>
+);
+const IconBell = () => (
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341A6.002 6.002 0 006 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+  </svg>
+);
 
 const ITEMS_PER_PAGE = 5;
 
@@ -144,7 +151,7 @@ function formatTimeAgo(isoDate) {
 function isPointInPolygon(point, polygon) {
   let isInside = false;
   const { lat, lng } = point;
-  
+
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     const xi = polygon[i].lat, yi = polygon[i].lng;
     const xj = polygon[j].lat, yj = polygon[j].lng;
@@ -191,7 +198,7 @@ export default function Dashboard() {
   const [pacienteSeleccionado, setPacienteSeleccionado] = useState(null);
   const [geofenceCounts, setGeofenceCounts] = useState({});
   const [geocercasCompletas, setGeocercasCompletas] = useState({});
-  
+
   // === ESTADO PARA MODALES DE DISPOSITIVO ===
   const [showLiberarConfirm, setShowLiberarConfirm] = useState(false);
   const [pacienteParaLiberar, setPacienteParaLiberar] = useState(null);
@@ -201,10 +208,17 @@ export default function Dashboard() {
   const [dispositivoIdInput, setDispositivoIdInput] = useState("");
   const [isAsignando, setIsAsignando] = useState(false);
 
+  // === ESTADO PARA ALERTAS ===
+  const [currentView, setCurrentView] = useState('pacientes'); // 'pacientes' o 'alertas'
+  const [alertas, setAlertas] = useState([]);
+  const [isLoadingAlertas, setIsLoadingAlertas] = useState(true);
+  const [unseenAlertsCount, setUnseenAlertsCount] = useState(0); // Para el "9+"
+  const toastedAlertIds = useRef(new Set());
+
   const cargarPacientes = async () => {
     try {
       const data = await listarPacientes();
-      setPacientes(data); 
+      setPacientes(data);
 
       const geocercaPromises = [];
       const datosPromises = [];
@@ -215,7 +229,7 @@ export default function Dashboard() {
             .then(g => ({ id: p._id, geocercas: Array.isArray(g) ? g : [] }))
             .catch(() => ({ id: p._id, geocercas: [] }))
         );
-        
+
         datosPromises.push(
           getDatosRelevantes(p._id)
             .then(datos => ({ id: p._id, datos })) // datos = { ultimoDato, ultimoGpsValido }
@@ -246,7 +260,7 @@ export default function Dashboard() {
     const filtrados = filtroNombre
       ? pacientes.filter(p => `${p.nombre} ${p.apellidoP} ${p.apellidoM}`.toLowerCase().includes(lowerFiltro))
       : [...pacientes]; // Usar una copia para no mutar el estado original
-    
+
 
     filtrados.sort((a, b) => {
       let aValue;
@@ -278,6 +292,38 @@ export default function Dashboard() {
     return { pacientesPaginados: paginados, totalPages: total };
   }, [pacientes, filtroNombre, currentPage, sortConfig, geofenceCounts]);
 
+  const cargarAlertas = async () => {
+    try {
+      const data = await listarAlertas();
+      setAlertas(data);
+      
+      const unseenCount = data.filter(a => !a.vista).length;
+      setUnseenAlertsCount(unseenCount);
+
+      const newUnseenAlerts = data.filter(a => !a.vista && !toastedAlertIds.current.has(a._id));
+
+      if (newUnseenAlerts.length > 0) {
+        const mostRecentAlert = newUnseenAlerts[0]; 
+        newUnseenAlerts.forEach(a => toastedAlertIds.current.add(a._id));
+        
+        const isSalida = mostRecentAlert.tipo === 'salida_geocerca';
+        const popupMessage = mostRecentAlert.mensaje;
+
+        setPopup({
+          show: true,
+          success: !isSalida,
+          message: popupMessage
+        });
+        setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000); // 3 seg
+      }
+
+    } catch (e) {
+      console.error("Error al listar alertas:", e);
+    } finally {
+      setIsLoadingAlertas(false);
+    }
+  };
+
   useEffect(() => {
     const fetchDatos = async () => {
       try {
@@ -297,10 +343,23 @@ export default function Dashboard() {
         telefono: user.telefono,
         email: user.email
       });
+
+      toastedAlertIds.current = new Set();
+      fetchDatos();
+      cargarPacientes();
+      cargarAlertas();
     }
-    fetchDatos();
-    cargarPacientes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      const intervalId = setInterval(() => {
+        console.log("Buscando nuevas alertas...");
+        cargarAlertas();
+      }, 60000); // 60 segundos
+
+      return () => clearInterval(intervalId);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -319,18 +378,6 @@ export default function Dashboard() {
 
   const handleLogout = () => { logout(); navigate("/auth"); };
 
-  const handleOpenInfoModal = () => {
-    setForm({
-      nombre: user.nombre,
-      apellidoP: user.apellidoP,
-      apellidoM: user.apellidoM,
-      telefono: user.telefono,
-      email: user.email
-    });
-    setMenuOpen(false);
-    setShowModal(true);
-  };
-  
   const handleCloseInfoModal = () => {
     setShowModal(false);
     setForm({
@@ -441,13 +488,13 @@ export default function Dashboard() {
   const handleConfirmarLiberar = async () => {
     if (isLiberando) return;
     setIsLiberando(true);
-    
+
     try {
       await liberarDispositivo(pacienteParaLiberar._id);
       handleCancelarLiberar();
       setPopup({ show: true, success: true, message: "Dispositivo liberado" });
       setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
-      await cargarPacientes(); 
+      await cargarPacientes();
     } catch (e) {
       setPopup({ show: true, success: false, message: e.message });
       setTimeout(() => setPopup({ show: false, success: false, message: "" }), 2500);
@@ -479,10 +526,10 @@ export default function Dashboard() {
       handleCancelarAsignar();
       setPopup({ show: true, success: true, message: "Dispositivo asignado" });
       setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
-      await cargarPacientes(); 
+      await cargarPacientes();
     } catch (e) {
       setPopup({ show: true, success: false, message: e.message });
-      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000); 
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
     } finally {
       setIsAsignando(false);
     }
@@ -532,7 +579,7 @@ export default function Dashboard() {
     if (locationStatus === "Conectado a WiFi") {
       if (enGeocerca) {
         return { status: `Conectado a WiFi (Última ubicación en ${nombreGeocerca})`, icon: IconWifi, color: "text-green-600" };
-      } else if (locationPoint) { 
+      } else if (locationPoint) {
         // Está en WiFi, pero su último GPS válido estaba "Fuera"
         return { status: `Conectado a WiFi (Fuera de zona)`, icon: IconWifi, color: "text-yellow-600" };
       } else {
@@ -563,374 +610,399 @@ export default function Dashboard() {
         <div className="flex items-center space-x-3">
           <h1 className="text-2xl font-bold text-white hidden sm:block">Dashboard</h1>
         </div>
-        <div className="hidden md:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+        <div className="flex items-center gap-4">
+          {/* Botón de Alerta */}
           <button
-            onClick={() => setAltaOpen(true)}
-            className="flex items-center bg-[#3A6EA5] hover:bg-[#2E5984] text-white px-4 py-2 rounded-full shadow-md transition-transform transform hover:scale-105"
+            onClick={() => setCurrentView('alertas')}
+            className="relative text-gray-300 hover:text-white focus:outline-none"
+            title="Ver alertas"
           >
-            <IconUserPlus />
-            Dar de alta
+            <IconBell />
+            {unseenAlertsCount > 0 && (
+              <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-xs font-bold text-white">
+                {unseenAlertsCount > 9 ? '9+' : unseenAlertsCount}
+              </span> 
+            )}
           </button>
-        </div>
-        <div className="relative" ref={menuRef}>
-          <button 
-            onClick={() => setMenuOpen(!menuOpen)} 
-            className="flex items-center justify-center w-10 h-10 bg-white rounded-full text-gray-700 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-teal-500 transition-transform transform hover:scale-105"
-          >
-            {getInitials(user)}
-          </button>
+      
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="flex items-center justify-center w-10 h-10 bg-white rounded-full text-gray-700 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-teal-500 transition-transform transform hover:scale-105"
+            >
+              {getInitials(user)}
+            </button>
 
-          {/* --- Menú Desplegable --- */}
-          {menuOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-md shadow-lg z-50 animate-slide-down overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-700">
-                <p className="text-sm text-white">{user?.nombre} {user?.apellidoP} {user?.apellidoM}</p>
-                <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+            {/* --- Menú Desplegable --- */}
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-md shadow-lg z-50 animate-slide-down overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-700">
+                  <p className="text-sm text-white">{user?.nombre} {user?.apellidoP} {user?.apellidoM}</p>
+                  <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                </div>
+                <nav className="py-1">
+                  <button
+                    onClick={() => { setShowModal(true); setMenuOpen(false); }}
+                    className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 w-full text-left"
+                  >
+                    <IconInfo />
+                    Mi Información
+                  </button>
+                  <button
+                    onClick={() => { setMenuOpen(false); handleLogout(); }}
+                    className="flex items-center px-4 py-2 text-sm text-red-400 hover:bg-gray-700 w-full text-left"
+                  >
+                    <IconLogout />
+                    Cerrar sesión
+                  </button>
+                </nav>
               </div>
-              <nav className="py-1">
-                <button
-                  onClick={() => { setAltaOpen(true); setMenuOpen(false); }}
-                  className="md:hidden flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 w-full text-left"
-                >
-                  <IconUserPlus className="w-5 h-5 mr-3 text-gray-400" />
-                  Dar de alta
-                </button>
-
-                <button
-                  onClick={() => { setShowModal(true); setMenuOpen(false); }}
-                  className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 w-full text-left"
-                >
-                  <IconInfo />
-                  Mi Información
-                </button>
-                <button
-                  onClick={() => { setMenuOpen(false); handleLogout(); }}
-                  className="flex items-center px-4 py-2 text-sm text-red-400 hover:bg-gray-700 w-full text-left"
-                >
-                  <IconLogout />
-                  Cerrar sesión
-                </button>
-              </nav>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
 
       {/* CONTENIDO */}
-      <div className="pt-24 container mx-auto px-4">
-        <div className="bg-white rounded-xl shadow-2xl p-6 z-1 animate-zoom-in mb-6">
-          <h2 className="text-3xl font-bold tracking-tight text-center text-gray-800 mb-6">PANEL DE PACIENTES</h2>
-          <div className="relative mb-6 max-w-lg mx-auto">
-            <input
-              type="text"
-              value={filtroNombre}
-              onChange={(e) => setFiltroNombre(e.target.value)}
-              placeholder="Buscar paciente por nombre..."
-              className="w-full border border-gray-300 rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
-            />
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-              <IconSearch />
-            </div>
-          </div>
+      <div className="pt-24 max-w-6xl mx-auto">
+        {currentView === 'pacientes' && (
+          <>
+            <div className="bg-white rounded-xl shadow-2xl p-6 z-1 animate-zoom-in mb-6">
+              <h2 className="text-3xl font-bold tracking-tight text-center text-gray-800 mb-6">PANEL DE PACIENTES</h2>
+              <div className="relative mb-6 max-w-lg mx-auto">
+                <input
+                  type="text"
+                  value={filtroNombre}
+                  onChange={(e) => setFiltroNombre(e.target.value)}
+                  placeholder="Buscar paciente por nombre..."
+                  className="w-full border border-gray-300 rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+                />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                  <IconSearch />
+                </div>
+              </div>
 
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <span className="text-sm font-medium text-gray-600">Ordenar por:</span>
-            <button
-              onClick={() => handleSort('nombre')}
-              className={`flex items-center px-3 py-1 text-sm rounded-full ${sortConfig.key === 'nombre' ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Nombre
-              {sortConfig.key === 'nombre' && (
-                sortConfig.direction === 'ascending' ? <IconArrowUp /> : <IconArrowDown />
+              <div className="flex items-center justify-center gap-2 mb-6">
+                <span className="text-sm font-medium text-gray-600">Ordenar por:</span>
+                <button
+                  onClick={() => handleSort('nombre')}
+                  className={`flex items-center px-3 py-1 text-sm rounded-full ${sortConfig.key === 'nombre' ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                >
+                  Nombre
+                  {sortConfig.key === 'nombre' && (
+                    sortConfig.direction === 'ascending' ? <IconArrowUp /> : <IconArrowDown />
+                  )}
+                </button>
+                <button
+                  onClick={() => handleSort('edad')}
+                  className={`flex items-center px-3 py-1 text-sm rounded-full ${sortConfig.key === 'edad' ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                >
+                  Edad
+                  {sortConfig.key === 'edad' && (
+                    sortConfig.direction === 'ascending' ? <IconArrowUp /> : <IconArrowDown />
+                  )}
+                </button>
+                <button
+                  onClick={() => handleSort('geofenceCounts')}
+                  className={`flex items-center px-3 py-1 text-sm rounded-full ${sortConfig.key === 'geofenceCounts' ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                >
+                  Geocercas
+                  {sortConfig.key === 'geofenceCounts' && (
+                    sortConfig.direction === 'ascending' ? <IconArrowUp /> : <IconArrowDown />
+                  )}
+                </button>
+              </div>
+
+              {pacientes.length > 0 && pacientesPaginados.length === 0 && (
+                <p className="text-center text-gray-500">
+                  No se encontraron pacientes con ese nombre.
+                </p>
               )}
-            </button>
-            <button
-              onClick={() => handleSort('edad')}
-              className={`flex items-center px-3 py-1 text-sm rounded-full ${sortConfig.key === 'edad' ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Edad
-              {sortConfig.key === 'edad' && (
-                sortConfig.direction === 'ascending' ? <IconArrowUp /> : <IconArrowDown />
-              )}
-            </button>
-            <button
-              onClick={() => handleSort('geofenceCounts')}
-              className={`flex items-center px-3 py-1 text-sm rounded-full ${sortConfig.key === 'geofenceCounts' ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Geocercas
-              {sortConfig.key === 'geofenceCounts' && (
-                sortConfig.direction === 'ascending' ? <IconArrowUp /> : <IconArrowDown />
-              )}
-            </button>
-          </div>
 
-          {pacientes.length > 0 && pacientesPaginados.length === 0 && (
-            <p className="text-center text-gray-500">
-              No se encontraron pacientes con ese nombre.
-            </p>
-          )}
+              {pacientes.length === 0 ? (
+                <p className="text-center text-gray-500">Aún no has dado de alta pacientes.</p>
+              ) : (
+                <div className="space-y-4">
+                  {pacientesPaginados.map((p) => {
+                    const datosRelevantes = ultimosDatos[p._id] || { ultimoDato: null, ultimoGpsValido: null };
+                    const geocercasDelPaciente = geocercasCompletas[p._id] || [];
+                    const ultimoDato = datosRelevantes.ultimoDato;
 
-          {pacientes.length === 0 ? (
-            <p className="text-center text-gray-500">Aún no has dado de alta pacientes.</p>
-          ) : (
-            <div className="space-y-4">
-              {pacientesPaginados.map((p) => {
-                const datosRelevantes = ultimosDatos[p._id] || { ultimoDato: null, ultimoGpsValido: null };
-                const geocercasDelPaciente = geocercasCompletas[p._id] || [];
-                const ultimoDato = datosRelevantes.ultimoDato; 
-              
-                const location = getLocationStatus(datosRelevantes, geocercasDelPaciente);
+                    const location = getLocationStatus(datosRelevantes, geocercasDelPaciente);
 
-                return (
-                  <div key={p._id} className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-lg">
-                    <div className="flex flex-col md:flex-row">
-                      
-                      {/* --- Columna 1: Info Paciente --- */}
-                      <div className="flex-grow p-4 pr-4">
-                        <div className="flex items-center flex-wrap gap-x-3">
-                          <span className="text-lg font-bold text-gray-800">
-                            {p.nombre} {p.apellidoP} {p.apellidoM} ({p.edad})
-                          </span>
-                          <span className="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
-                            Geocercas: {geofenceCounts[p._id] ?? 0}
-                          </span>
-                        </div>
-                        <div className={`text-sm mt-2 font-medium flex items-center ${location.color}`}>
-                          <location.icon />
-                          {location.status}
-                        </div>
+                    return (
+                      <div key={p._id} className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-lg">
+                        <div className="flex flex-col md:flex-row">
 
-                        <div className="border-t border-gray-100 mt-3 pt-3">
-                        {ultimoDato ? (
-                          <>
-                            <div className="flex items-center text-sm text-gray-700 mb-1">
-                              <span className="flex items-center mr-4">
-                                <IconHeart /> {ultimoDato.frecuencia} bpm
+                          {/* --- Columna 1: Info Paciente --- */}
+                          <div className="flex-grow p-4 pr-4">
+                            <div className="flex items-center flex-wrap gap-x-3">
+                              <span className="text-lg font-bold text-gray-800">
+                                {p.nombre} {p.apellidoP} {p.apellidoM} ({p.edad})
                               </span>
-                              <span className="flex items-center">
-                                <IconOxygen /> {ultimoDato.oxigeno} %
+                              <span className="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
+                                Geocercas: {geofenceCounts[p._id] ?? 0}
                               </span>
                             </div>
-                            <div className="flex items-center text-xs text-gray-500">
-                              <IconClock /> {formatTimeAgo(ultimoDato.fecha)}
+                            <div className={`text-sm mt-2 font-medium flex items-center ${location.color}`}>
+                              <location.icon />
+                              {location.status}
                             </div>
-                          </>
-                        ) : (
-                          <span className="text-sm italic text-gray-400">
-                            Sin datos vitales aún.
-                          </span>
-                        )}
-                      </div>
-                      </div>
-                      
-                      {/* --- Columna 2: Acciones --- */}
-                      <div className="flex-shrink-0 bg-gray-50 md:w-72 border-t md:border-t-0 md:border-l border-gray-200">
-                        <div className="p-3 flex space-x-2">
-                          <button
-                            onClick={() => abrirGeocerca(p)}
-                            className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
-                          >
-                            <IconMapPin />
-                            Configurar
-                          </button>
-                          <button
-                            onClick={() => abrirVerGeocercas(p)}
-                            className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
-                          >
-                            Ver datos
-                          </button>
-                        </div>
 
-                        {/* --- SECCIÓN DISPOSITIVO --- */}
-                        <div className="border-t border-gray-200 px-3 pt-2 pb-3">
-                          <h5 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Dispositivo</h5>
-                          <div className="flex items-center justify-between min-h-[34px]"> {/* Altura mínima para evitar saltos */}
-                            {p.dispositivo_id ? (
-                              // -- Caso 1: Dispositivo ASIGNADO --
-                              <>
-                                <span className="text-sm font-medium bg-gray-200 text-gray-800 px-2 py-1 rounded-md flex items-center overflow-hidden">
-                                  <IconDevice />
-                                  <span className="truncate" title={p.dispositivo_id}>{p.dispositivo_id}</span>
+                            <div className="border-t border-gray-100 mt-3 pt-3">
+                              {ultimoDato ? (
+                                <>
+                                  <div className="flex items-center text-sm text-gray-700 mb-1">
+                                    <span className="flex items-center mr-4">
+                                      <IconHeart /> {ultimoDato.frecuencia} bpm
+                                    </span>
+                                    <span className="flex items-center">
+                                      <IconOxygen /> {ultimoDato.oxigeno} %
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center text-xs text-gray-500">
+                                    <IconClock /> {formatTimeAgo(ultimoDato.fecha)}
+                                  </div>
+                                </>
+                              ) : (
+                                <span className="text-sm italic text-gray-400">
+                                  Sin datos vitales aún.
                                 </span>
-                                <button 
-                                  onClick={() => handleLiberarClick(p)}
-                                  className="text-sm flex items-center px-3 py-1.5 rounded-md bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 transition-colors"
-                                >
-                                  <IconUnlink />
-                                  Liberar
-                                </button>
-                              </>
-                            ) : (
-                              // -- Caso 2: Dispositivo NO asignado --
-                              <>
-                                <span className="text-sm italic text-gray-500">No asignado</span>
-                                <button 
-                                  onClick={() => handleAsignarClick(p)}
-                                  className="text-sm flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm"
-                                >
-                                  <IconLink />
-                                  Asignar
-                                </button>
-                              </>
-                            )}
+                              )}
+                            </div>
+                          </div>
+
+                          {/* --- Columna 2: Acciones --- */}
+                          <div className="flex-shrink-0 bg-gray-50 md:w-72 border-t md:border-t-0 md:border-l border-gray-200">
+                            <div className="p-3 flex space-x-2">
+                              <button
+                                onClick={() => abrirGeocerca(p)}
+                                className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
+                              >
+                                <IconMapPin />
+                                Configurar
+                              </button>
+                              <button
+                                onClick={() => abrirVerGeocercas(p)}
+                                className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
+                              >
+                                Ver datos
+                              </button>
+                            </div>
+
+                            {/* --- SECCIÓN DISPOSITIVO --- */}
+                            <div className="border-t border-gray-200 px-3 pt-2 pb-3">
+                              <h5 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Dispositivo</h5>
+                              <div className="flex items-center justify-between min-h-[34px]"> {/* Altura mínima para evitar saltos */}
+                                {p.dispositivo_id ? (
+                                  // -- Caso 1: Dispositivo ASIGNADO --
+                                  <>
+                                    <span className="text-sm font-medium bg-gray-200 text-gray-800 px-2 py-1 rounded-md flex items-center overflow-hidden">
+                                      <IconDevice />
+                                      <span className="truncate" title={p.dispositivo_id}>{p.dispositivo_id}</span>
+                                    </span>
+                                    <button
+                                      onClick={() => handleLiberarClick(p)}
+                                      className="text-sm flex items-center px-3 py-1.5 rounded-md bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 transition-colors"
+                                    >
+                                      <IconUnlink />
+                                      Liberar
+                                    </button>
+                                  </>
+                                ) : (
+                                  // -- Caso 2: Dispositivo NO asignado --
+                                  <>
+                                    <span className="text-sm italic text-gray-500">No asignado</span>
+                                    <button
+                                      onClick={() => handleAsignarClick(p)}
+                                      className="text-sm flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm"
+                                    >
+                                      <IconLink />
+                                      Asignar
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
                           </div>
                         </div>
-
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              )}
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-gray-200 pt-6 mt-6">
+                  <button
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 1}
+                    className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <IconPrev />
+                    <span className="ml-2">Anterior</span>
+                  </button>
+
+                  <span className="text-sm text-gray-700">
+                    Página <span className="font-semibold">{currentPage}</span> de <span className="font-semibold">{totalPages}</span>
+                  </span>
+
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages}
+                    className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="mr-2">Siguiente</span>
+                    <IconNext />
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t border-gray-200 pt-6 mt-6">
-              <button
-                onClick={handlePrevPage}
-                disabled={currentPage === 1}
-                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <IconPrev />
-                <span className="ml-2">Anterior</span>
-              </button>
-              
-              <span className="text-sm text-gray-700">
-                Página <span className="font-semibold">{currentPage}</span> de <span className="font-semibold">{totalPages}</span>
-              </span>
-              
-              <button
-                onClick={handleNextPage}
-                disabled={currentPage === totalPages}
-                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="mr-2">Siguiente</span>
-                <IconNext />
-              </button>
-            </div>
-          )}
-        </div>
 
 
-        {/* Datos Tabla */}
-        <div className="bg-white rounded-xl shadow-2xl p-6 z-1 animate-zoom-in">
-          <h2 className="text-2xl font-semibold text-center text-gray-800 mb-4">Datos Recibidos</h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm text-center border-collapse">
-              <thead className="bg-[#B1E2D5] text-gray-800">
-                <tr>
-                  <th className="py-3 px-4 border">Fecha</th>
-                  <th className="py-3 px-4 border">Frecuencia</th>
-                  <th className="py-3 px-4 border">Oxígeno</th>
-                  <th className="py-3 px-4 border">Latitud</th>
-                  <th className="py-3 px-4 border">Longitud</th>
-                </tr>
-              </thead>
-              <tbody>
-                {datos.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="py-4 text-gray-500">No hay datos disponibles.</td>
-                  </tr>
-                ) : (
-                  datos.map((dato) => (
-                    <tr key={dato._id} className="hover:bg-gray-100 transition-colors duration-200">
-                      <td className="py-2 px-4 border">{new Date(dato.fecha).toLocaleString("es-MX")}</td>
-                      <td className="py-2 px-4 border">{dato.frecuencia}</td>
-                      <td className="py-2 px-4 border">{dato.oxigeno}</td>
-                      <td className="py-2 px-4 border">{dato.latitud}</td>
-                      <td className="py-2 px-4 border">{dato.longitud}</td>
+            {/* Datos Tabla */}
+            <div className="bg-white rounded-xl shadow-2xl p-6 z-1 animate-zoom-in">
+              <h2 className="text-2xl font-semibold text-center text-gray-800 mb-4">Datos Recibidos</h2>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm text-center border-collapse">
+                  <thead className="bg-[#B1E2D5] text-gray-800">
+                    <tr>
+                      <th className="py-3 px-4 border">Fecha</th>
+                      <th className="py-3 px-4 border">Frecuencia</th>
+                      <th className="py-3 px-4 border">Oxígeno</th>
+                      <th className="py-3 px-4 border">Latitud</th>
+                      <th className="py-3 px-4 border">Longitud</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  </thead>
+                  <tbody>
+                    {datos.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="py-4 text-gray-500">No hay datos disponibles.</td>
+                      </tr>
+                    ) : (
+                      datos.map((dato) => (
+                        <tr key={dato._id} className="hover:bg-gray-100 transition-colors duration-200">
+                          <td className="py-2 px-4 border">{new Date(dato.fecha).toLocaleString("es-MX")}</td>
+                          <td className="py-2 px-4 border">{dato.frecuencia}</td>
+                          <td className="py-2 px-4 border">{dato.oxigeno}</td>
+                          <td className="py-2 px-4 border">{dato.latitud}</td>
+                          <td className="py-2 px-4 border">{dato.longitud}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
 
-        {/* MODAL: Mi Información */}
-        <InfoCuidadorModal
-          open={showModal}
-          onClose={handleCloseInfoModal}
-          form={form}
-          onChange={handleChange}
-          onUpdate={actualizarInfo}
-          onDeleteClick={() => {
-            setShowModal(false); // Cierra este modal
-            setShowDeleteConfirm(true); // Abre el de confirmación
-          }}
-        />
+        {currentView === 'alertas' && (
+          <AlertasView
+            alertas={alertas}
+            isLoading={isLoadingAlertas}
+            onBackClick={() => setCurrentView('pacientes')}
+            onRefreshAlerts={cargarAlertas} 
+          />
+        )}
+      </div>
 
-        {/* MODAL: Confirmar Borrar Cuenta */}
-        <DeleteConfirmModal
-          open={showDeleteConfirm}
-          onClose={() => setShowDeleteConfirm(false)}
-          onConfirm={() => {
-            setShowDeleteConfirm(false);
-            borrarCuenta();
-          }}
-        />
-        
-        {/* MODAL: Alta Paciente */}
-        <AltaPacienteModal open={altaOpen} onClose={() => setAltaOpen(false)} onCreated={cargarPacientes} />
-        
-        {/* MODAL: Configurar Geocerca */}
-        <GeocerceModal 
-          open={geofenceOpen} 
-          paciente={pacienteSeleccionado} 
-          onClose={cerrarGeocerca} 
-          onSaved={async () => {
-            try {
-              await cargarPacientes();
-              if (pacienteSeleccionado?._id) {
-                const g = await listarGeocercas(pacienteSeleccionado._id);
-                setGeofenceCounts(m => ({ ...m, [pacienteSeleccionado._id]: Array.isArray(g) ? g.length : 0 }));
-              }
-              setPopup({ show: true, success: true, message: "Geocerca(s) guardada(s)" });
-              setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
-            } catch (e) {
-              setPopup({ show: true, success: false, message: e.message || "Error al refrescar geocercas" });
-              setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1800);
-            } finally {
-              cerrarGeocerca();
+
+      <button
+        onClick={() => setAltaOpen(true)}
+        className="fixed bottom-8 right-8 z-50 w-16 h-16 bg-[#0F3D56] hover:bg-[#3A6EA5] text-white rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-teal-300 focus:ring-offset-2"
+        title="Dar de alta a un paciente"
+      >
+        <IconPlus />
+      </button>
+
+      {/* MODAL: Mi Información */}
+      <InfoCuidadorModal
+        open={showModal}
+        onClose={handleCloseInfoModal}
+        form={form}
+        onChange={handleChange}
+        onUpdate={actualizarInfo}
+        onDeleteClick={() => {
+          setShowModal(false); // Cierra este modal
+          setShowDeleteConfirm(true); // Abre el de confirmación
+        }}
+      />
+
+      {/* MODAL: Confirmar Borrar Cuenta */}
+      <DeleteConfirmModal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          borrarCuenta();
+        }}
+      />
+
+      {/* MODAL: Alta Paciente */}
+      <AltaPacienteModal
+        open={altaOpen}
+        onClose={() => setAltaOpen(false)}
+        onCreated={cargarPacientes} />
+
+      {/* MODAL: Configurar Geocerca */}
+      <GeocerceModal
+        open={geofenceOpen}
+        paciente={pacienteSeleccionado}
+        onClose={cerrarGeocerca}
+        onSaved={async () => {
+          try {
+            await cargarPacientes();
+            if (pacienteSeleccionado?._id) {
+              const g = await listarGeocercas(pacienteSeleccionado._id);
+              setGeofenceCounts(m => ({ ...m, [pacienteSeleccionado._id]: Array.isArray(g) ? g.length : 0 }));
             }
-          }} 
-        />
-        
-        {/* MODAL: Ver Geocercas */}
-        <ViewGeocercasModal 
-          open={viewGeocercasOpen} 
-          paciente={pacienteSeleccionado} 
-          onClose={cerrarVerGeocercas} 
-        />
+            setPopup({ show: true, success: true, message: "Geocerca(s) guardada(s)" });
+            setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
+          } catch (e) {
+            setPopup({ show: true, success: false, message: e.message || "Error al refrescar geocercas" });
+            setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1800);
+          } finally {
+            cerrarGeocerca();
+          }
+        }}
+      />
 
-        {/* === MODAL: Confirmar Liberar Dispositivo === */}
-        <LiberarDispositivoModal
-          open={showLiberarConfirm}
-          onClose={handleCancelarLiberar}
-          onConfirm={handleConfirmarLiberar}
-          paciente={pacienteParaLiberar}
-          isLiberando={isLiberando}
-        />
-        
-        {/* === MODAL: Asignar Dispositivo === */}
-        <AsignarDispositivoModal
-          open={showAsignarModal}
-          onClose={handleCancelarAsignar}
-          onConfirm={handleConfirmarAsignar}
-          paciente={pacienteParaAsignar}
-          isAsignando={isAsignando}
-          idInput={dispositivoIdInput}
-          onIdInputChange={(e) => setDispositivoIdInput(e.target.value)}
-        />
+      {/* MODAL: Ver Geocercas */}
+      <ViewGeocercasModal
+        open={viewGeocercasOpen}
+        paciente={pacienteSeleccionado}
+        onClose={cerrarVerGeocercas}
+      />
 
-        {/* POPUP DE NOTIFICACIÓN */}
-        <NotificacionPopup
-          popup={popup}
-          onClose={() => setPopup({ ...popup, show: false })}
-        />
+      {/* === MODAL: Confirmar Liberar Dispositivo === */}
+      <LiberarDispositivoModal
+        open={showLiberarConfirm}
+        onClose={handleCancelarLiberar}
+        onConfirm={handleConfirmarLiberar}
+        paciente={pacienteParaLiberar}
+        isLiberando={isLiberando}
+      />
 
-        {/* estilos animaciones */}
-        <style>{`
+      {/* === MODAL: Asignar Dispositivo === */}
+      <AsignarDispositivoModal
+        open={showAsignarModal}
+        onClose={handleCancelarAsignar}
+        onConfirm={handleConfirmarAsignar}
+        paciente={pacienteParaAsignar}
+        isAsignando={isAsignando}
+        idInput={dispositivoIdInput}
+        onIdInputChange={(e) => setDispositivoIdInput(e.target.value)}
+      />
+
+      {/* POPUP DE NOTIFICACIÓN */}
+      <NotificacionPopup
+        popup={popup}
+        onClose={() => setPopup({ ...popup, show: false })}
+      />
+
+      {/* estilos animaciones */}
+      <style>{`
           @keyframes zoom-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
           .animate-zoom-in { animation: zoom-in 0.7s cubic-bezier(.4,0,.2,1) both; }
           @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -941,8 +1013,37 @@ export default function Dashboard() {
           .animate-slide-down { animation: slideDown 0.3s ease-out both; }
           @keyframes popup-fade { from { opacity: 0; } to { opacity: 1; } }
           .animate-popup-fade { animation: popup-fade 0.4s both; }
+
+          @keyframes pop-from-fab {
+            0% {
+              transform: scale(0) translateX(50vw) translateY(50vh);
+              opacity: 0;
+              transform-origin: bottom right;
+            }
+            100% {
+              transform: scale(1) translateX(0) translateY(0);
+              opacity: 1;
+              transform-origin: bottom right;
+            }
+          }
+          .animate-pop-from-fab {
+            animation: pop-from-fab 0.5s cubic-bezier(.4,0,.2,1) both;
+          }
+
+          @keyframes fade-in-down {
+            from { 
+              opacity: 0; 
+              transform: translateY(-40px);
+            } 
+            to { 
+              opacity: 1; 
+              transform: translateY(0);
+            } 
+          }
+          .animate-fade-in-down {
+            animation: fade-in-down 0.5s cubic-bezier(.4,0,.2,1) both;
+          }
         `}</style>
-      </div>
     </div>
   );
 }
