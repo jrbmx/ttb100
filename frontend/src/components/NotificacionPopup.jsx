@@ -25,7 +25,7 @@ const IconClose = () => (
 );
 
 
-export default function NotificacionPopup({ popup, onClose }) {
+export default function NotificacionPopup({ popup, onClose, onClick }) {
   if (!popup.show) return null;
 
   // Elige el ícono basado en 'popup.success'
@@ -41,10 +41,9 @@ export default function NotificacionPopup({ popup, onClose }) {
   return (
     <div 
       className="fixed top-5 left-0 right-0 z-[5000] flex justify-center animate-fade-in-down pointer-events-none"
-      onClick={onClose}
     >
       <div 
-        onClick={onClose} 
+        onClick={onClick} 
         className={`flex items-center max-w-sm w-full shadow-2xl rounded-xl p-4 ${backgroundColor} pointer-events-auto cursor-pointer`}
       >
         <div className="flex-shrink-0">

@@ -27,3 +27,13 @@ export async function marcarAlertaComoVista(alertaId) {
   if (!res.ok) throw new Error(data.mensaje || 'Error marcando alerta como vista');
   return data; // Devuelve la alerta actualizada
 }
+
+export async function marcarTodasComoVistas() {
+  const res = await fetch(`${API}/api/alertas/marcar-todas-vistas`, {
+    method: 'PUT',
+    headers: authHeaders(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.mensaje || 'Error marcando todas como vistas');
+  return data; // Devuelve { mensaje, modifiedCount }
+}

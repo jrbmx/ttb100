@@ -8,6 +8,8 @@ import Acerca from './infoExtra/acerca';
 import Authentication from './cuidadores/Authentication';
 import ForgotPassword from './cuidadores/ForgotPassword';
 import ResetPassword from './cuidadores/ResetPassword';
+import PacienteDetalle from './pages/PacienteDetalle'; 
+
 
 function App() {
   return (
@@ -26,6 +28,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/paciente/:pacienteId"
+            element={
+              <ProtectedRoute>
+                <PacienteDetalle />
               </ProtectedRoute>
             }
           />

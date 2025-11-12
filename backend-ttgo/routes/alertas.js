@@ -42,4 +42,21 @@ router.put('/:id/vista', auth, async (req, res) => {
   }
 });
 
+router.put('/marcar-todas-vistas', auth, async (req, res) => {
+  try {
+    const result = await Alerta.updateMany(
+      { cuidador: req.user.id, vista: false }, // El filtro
+      { $set: { vista: true } } // La actualización
+    );
+
+    res.json({ 
+      mensaje: 'Todas las alertas han sido marcadas como leídas.',
+      modifiedCount: result.nModified 
+    });
+  } catch (e) {
+    console.error('Error marcando todas como vistas:', e);
+    res.status(500).json({ mensaje: 'Error del servidor' });
+  }
+});
+
 module.exports = router;

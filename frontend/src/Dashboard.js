@@ -11,7 +11,6 @@ import { listarGeocercas } from "./services/geocercas";
 import { getDatosRelevantes } from "./services/datos";
 import AltaPacienteModal from "./components/AltaPacienteModal";
 import GeocerceModal from './components/GeocerceModal.jsx';
-import ViewGeocercasModal from './components/ViewGeocercasModal.jsx';
 import InfoCuidadorModal from "./components/InfoCuidadorModal.jsx";
 import DeleteConfirmModal from "./components/DeleteConfirmModal.jsx";
 import LiberarDispositivoModal from "./components/LiberarDispositivoModal.jsx";
@@ -19,6 +18,7 @@ import AsignarDispositivoModal from "./components/AsignarDispositivoModal.jsx";
 import NotificacionPopup from "./components/NotificacionPopup.jsx";
 import { listarAlertas } from "./services/alertas";
 import AlertasView from "./components/AlertasView.jsx";
+import MapaGeneralView from "./components/MapaGeneralView.jsx";
 
 const IconDevice = () => (
   <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -119,8 +119,45 @@ const IconBell = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341A6.002 6.002 0 006 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
   </svg>
 );
+const IconMap = () => (
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13v-6m0 6l5.447 2.724A1 1 0 0015 20.382V9.618a1 1 0 00-1.447-.894L9 11m0-4v6m0-6V3a1 1 0 011-1h2a1 1 0 011 1v6m0 0L15 7l5.447-2.724A1 1 0 0122 5.618v10.764a1 1 0 01-1.447.894L15 15m0 0v-6" />
+  </svg>
+);
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
 
 const ITEMS_PER_PAGE = 5;
+
+
+const playAlertSound = () => {
+  try {
+    const playBeep = (startTime) => {
+      // --- ¡LA CLAVE ESTÁ AQUÍ! ---
+      // Creamos un *nuevo* oscilador y gainNode cada vez
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.type = 'sine'; // Un "beep" simple
+      oscillator.frequency.setValueAtTime(880, startTime); // Tono
+      gainNode.gain.setValueAtTime(0.5, startTime); // Volumen
+
+      oscillator.start(startTime);
+      oscillator.stop(startTime + 0.1); // Duración de 100ms
+    };
+
+    // Programar los beeps
+    const now = audioContext.currentTime;
+    playBeep(now);
+    playBeep(now + 0.2); // Segundo beep 200ms después
+
+  } catch (e) {
+    console.error("Error al reproducir sonido:", e, audioContext.state);
+  }
+};
 
 const getInitials = (user) => {
   if (!user || !user.nombre) return "??";
@@ -168,7 +205,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const menuRef = useRef(null);
 
-  const [datos, setDatos] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
@@ -186,7 +222,6 @@ export default function Dashboard() {
   // alta paciente
   const [altaOpen, setAltaOpen] = useState(false);
   const [pacientes, setPacientes] = useState([]);
-  const API = process.env.REACT_APP_API_URL || "http://localhost:3000";
   const [filtroNombre, setFiltroNombre] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({ key: 'nombre', direction: 'ascending' });
@@ -194,7 +229,6 @@ export default function Dashboard() {
 
   // === NUEVO: estado para geocercas ===
   const [geofenceOpen, setGeofenceOpen] = useState(false);
-  const [viewGeocercasOpen, setViewGeocercasOpen] = useState(false);
   const [pacienteSeleccionado, setPacienteSeleccionado] = useState(null);
   const [geofenceCounts, setGeofenceCounts] = useState({});
   const [geocercasCompletas, setGeocercasCompletas] = useState({});
@@ -309,6 +343,10 @@ export default function Dashboard() {
         const isSalida = mostRecentAlert.tipo === 'salida_geocerca';
         const popupMessage = mostRecentAlert.mensaje;
 
+        if (isSalida) {
+          playAlertSound();
+        }
+
         setPopup({
           show: true,
           success: !isSalida,
@@ -325,16 +363,6 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const fetchDatos = async () => {
-      try {
-        const res = await fetch(`${API}/api/datos`);
-        const data = await res.json();
-        setDatos(data);
-      } catch (error) {
-        console.error("Error al obtener datos:", error);
-      }
-    };
-
     if (user) {
       setForm({
         nombre: user.nombre,
@@ -345,7 +373,6 @@ export default function Dashboard() {
       });
 
       toastedAlertIds.current = new Set();
-      fetchDatos();
       cargarPacientes();
       cargarAlertas();
     }
@@ -375,6 +402,24 @@ export default function Dashboard() {
   useEffect(() => {
     setCurrentPage(1); // Vuelve a la página 1 cada vez que se busca
   }, [filtroNombre]);
+
+  useEffect(() => {
+    const unlockAudio = () => {
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          console.log("AudioContext desbloqueado.");
+        });
+      }
+      // Quitar el listener después del primer clic
+      document.removeEventListener('click', unlockAudio);
+    };
+
+    document.addEventListener('click', unlockAudio);
+    
+    return () => {
+      document.removeEventListener('click', unlockAudio);
+    };
+  }, []);
 
   const handleLogout = () => { logout(); navigate("/auth"); };
 
@@ -463,16 +508,6 @@ export default function Dashboard() {
     setPacienteSeleccionado(null);
   };
 
-  // === NUEVO: abrir/cerrar modal ver geocercas ===
-  const abrirVerGeocercas = async (paciente) => {
-    setPacienteSeleccionado(paciente);
-    setViewGeocercasOpen(true);
-  };
-  const cerrarVerGeocercas = () => {
-    setViewGeocercasOpen(false);
-    setPacienteSeleccionado(null);
-  };
-
   // === Handlers para LIBERAR dispositivo ===
   const handleLiberarClick = (paciente) => {
     setPacienteParaLiberar(paciente);
@@ -540,6 +575,10 @@ export default function Dashboard() {
   };
   const handlePrevPage = () => {
     setCurrentPage(prev => Math.max(prev - 1, 1));
+  };
+  const handleToastClick = () => {
+    setCurrentView('alertas'); // Cambia a la vista de alertas
+    setPopup({ ...popup, show: false }); // Cierra el toast
   };
 
   const getLocationStatus = (datosRelevantes, geocercas) => {
@@ -611,6 +650,13 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold text-white hidden sm:block">Dashboard</h1>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => setCurrentView('mapa')}
+            className={`relative ${currentView === 'mapa' ? 'text-white' : 'text-gray-300'} hover:text-white focus:outline-none`}
+            title="Ver Mapa General"
+          >
+            <IconMap />
+          </button>
           {/* Botón de Alerta */}
           <button
             onClick={() => setCurrentView('alertas')}
@@ -782,10 +828,10 @@ export default function Dashboard() {
                                 Configurar
                               </button>
                               <button
-                                onClick={() => abrirVerGeocercas(p)}
+                                onClick={() => navigate(`/paciente/${p._id}`)}
                                 className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
                               >
-                                Ver datos
+                                Ver detalles
                               </button>
                             </div>
 
@@ -858,42 +904,6 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-
-
-            {/* Datos Tabla */}
-            <div className="bg-white rounded-xl shadow-2xl p-6 z-1 animate-zoom-in">
-              <h2 className="text-2xl font-semibold text-center text-gray-800 mb-4">Datos Recibidos</h2>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm text-center border-collapse">
-                  <thead className="bg-[#B1E2D5] text-gray-800">
-                    <tr>
-                      <th className="py-3 px-4 border">Fecha</th>
-                      <th className="py-3 px-4 border">Frecuencia</th>
-                      <th className="py-3 px-4 border">Oxígeno</th>
-                      <th className="py-3 px-4 border">Latitud</th>
-                      <th className="py-3 px-4 border">Longitud</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {datos.length === 0 ? (
-                      <tr>
-                        <td colSpan="5" className="py-4 text-gray-500">No hay datos disponibles.</td>
-                      </tr>
-                    ) : (
-                      datos.map((dato) => (
-                        <tr key={dato._id} className="hover:bg-gray-100 transition-colors duration-200">
-                          <td className="py-2 px-4 border">{new Date(dato.fecha).toLocaleString("es-MX")}</td>
-                          <td className="py-2 px-4 border">{dato.frecuencia}</td>
-                          <td className="py-2 px-4 border">{dato.oxigeno}</td>
-                          <td className="py-2 px-4 border">{dato.latitud}</td>
-                          <td className="py-2 px-4 border">{dato.longitud}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </>
         )}
 
@@ -903,6 +913,14 @@ export default function Dashboard() {
             isLoading={isLoadingAlertas}
             onBackClick={() => setCurrentView('pacientes')}
             onRefreshAlerts={cargarAlertas} 
+          />
+        )}
+
+        {currentView === 'mapa' && (
+          <MapaGeneralView
+            pacientes={pacientes}
+            ultimosDatos={ultimosDatos}
+            onBackClick={() => setCurrentView('pacientes')}
           />
         )}
       </div>
@@ -968,13 +986,6 @@ export default function Dashboard() {
         }}
       />
 
-      {/* MODAL: Ver Geocercas */}
-      <ViewGeocercasModal
-        open={viewGeocercasOpen}
-        paciente={pacienteSeleccionado}
-        onClose={cerrarVerGeocercas}
-      />
-
       {/* === MODAL: Confirmar Liberar Dispositivo === */}
       <LiberarDispositivoModal
         open={showLiberarConfirm}
@@ -999,6 +1010,7 @@ export default function Dashboard() {
       <NotificacionPopup
         popup={popup}
         onClose={() => setPopup({ ...popup, show: false })}
+        onClick={handleToastClick}
       />
 
       {/* estilos animaciones */}
@@ -1042,6 +1054,82 @@ export default function Dashboard() {
           }
           .animate-fade-in-down {
             animation: fade-in-down 0.5s cubic-bezier(.4,0,.2,1) both;
+          }
+
+          @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 1; }
+            70% { transform: scale(2.5); opacity: 0; }
+            100% { transform: scale(0.9); opacity: 0; }
+          }
+          .pulsing-marker {
+            width: 20px;
+            height: 20px;
+            background-color: #2563eb; /* azul más fuerte */
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 8px rgba(0,0,0,0.5);
+            position: relative;
+          }
+          .pulsing-marker::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background-color: #3b82f6; /* azul */
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            z-index: -1;
+          }
+          
+          /* --- Popup Personalizado --- */
+          .custom-leaflet-popup .leaflet-popup-content-wrapper {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: 1px solid #eee;
+          }
+          .custom-leaflet-popup .leaflet-popup-content {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+          }
+          .custom-leaflet-popup .leaflet-popup-tip {
+            background: #ffffff;
+          }
+          .custom-leaflet-popup a.leaflet-popup-close-button {
+            color: #555;
+            padding: 8px 8px 0 0;
+          }
+          
+          /* Contenido interno del popup */
+          .custom-popup-content {
+            padding: 14px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px; /* Espacio entre líneas */
+            font-size: 14px;
+            line-height: 1.5;
+            min-width: 220px; /* Ancho mínimo */
+          }
+          .custom-popup-content strong {
+            font-weight: 600;
+            color: #111827; /* Casi negro */
+          }
+          .custom-popup-content hr {
+            border: 0;
+            height: 1px;
+            background-color: #f3f4f6; /* Gris claro */
+            margin: 4px 0;
+          }
+          .custom-popup-content .fecha {
+            font-size: 12px;
+            color: #6b7280; /* Gris medio */
+            margin-top: 4px;
+          }
+          .custom-popup-content span {
+            color: #374151; /* Gris oscuro */
           }
         `}</style>
     </div>

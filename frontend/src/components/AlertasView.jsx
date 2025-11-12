@@ -1,6 +1,6 @@
 // src/components/AlertasView.jsx
 import React, { useState, useMemo, useEffect } from 'react';
-import { marcarAlertaComoVista } from '../services/alertas';
+import { marcarAlertaComoVista, marcarTodasComoVistas } from '../services/alertas';
 
 // --- Iconos ---
 const IconAlert = () => (
@@ -90,6 +90,7 @@ export default function AlertasView({ alertas, isLoading, onBackClick, onRefresh
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isMarking, setIsMarking] = useState(false); // Para el botón "Marcar como leída"
+  const [isMarkingAll, setIsMarkingAll] = useState(false);
 
   // 1. Lógica de Filtrado y Búsqueda
   const filteredAlerts = useMemo(() => {
@@ -146,6 +147,19 @@ export default function AlertasView({ alertas, isLoading, onBackClick, onRefresh
     }
   };
 
+  const handleMarkAllAsRead = async () => {
+    setIsMarkingAll(true);
+    try {
+      await marcarTodasComoVistas();
+      onRefreshAlerts(); // Recarga las alertas en el Dashboard
+    } catch (e) {
+      console.error("Error al marcar todas como leídas:", e);
+      // (Aquí podrías usar tu sistema de popup/toast si lo pasas como prop)
+    } finally {
+      setIsMarkingAll(false);
+    }
+  };
+
   const countNuevas = alertas.filter(a => !a.vista).length;
 
   return (
@@ -153,7 +167,7 @@ export default function AlertasView({ alertas, isLoading, onBackClick, onRefresh
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
         <h2 className="text-2xl font-semibold text-gray-800">
-          Centro de alertas recibidas
+          CENTRO DE ALERTAS RECIBIDAS
         </h2>
         <button
           onClick={onBackClick}
@@ -201,6 +215,18 @@ export default function AlertasView({ alertas, isLoading, onBackClick, onRefresh
           </div>
         </div>
       </div>
+
+      {currentTab === 'nuevas' && countNuevas > 0 && (
+        <div className="mb-4 text-right">
+          <button
+            onClick={handleMarkAllAsRead}
+            disabled={isMarkingAll || isMarking}
+            className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
+          >
+            {isMarkingAll ? "Marcando..." : "Marcar todas como leídas"}
+          </button>
+        </div>
+      )}
 
       {/* Lista de Alertas */}
       <div className="space-y-4 min-h-[400px]">
