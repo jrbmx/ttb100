@@ -1,5 +1,5 @@
 // src/pages/PacienteDetalle.jsx
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../auth/AuthContext';
 import { listarPacientes } from '../services/pacientes';
@@ -12,14 +12,12 @@ const IconArrowLeft = () => (
   </svg>
 );
 const IconHeart = ({ className }) => (
-  <svg className={`w-8 h-8 block ${className}`} fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+  <svg className={`w-12 h-12 block ${className}`} fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
     <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
   </svg>
 );
 const IconOxygen = () => (
-  <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-  </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-blue-500"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.708 2.372a2.382 2.382 0 0 0 -.71 .686l-4.892 7.26c-1.981 3.314 -1.22 7.466 1.767 9.882c2.969 2.402 7.286 2.402 10.254 0c2.987 -2.416 3.748 -6.569 1.795 -9.836l-4.919 -7.306c-.722 -1.075 -2.192 -1.376 -3.295 -.686z" /></svg>
 );
 const IconCheck = () => (
   <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
@@ -43,20 +41,20 @@ function formatTimeAgo(isoDate) {
 
 function getHeartStatus(bpm) {
   if (bpm >= 60 && bpm <= 100) {
-    return { color: 'text-green-500', animation: 'animate-pulse-normal', text: 'Ritmo cardíaco normal', Icon: IconCheck };
+    return { color: 'text-[#4dc278ff]', animation: 'animate-pulse-normal', text: 'Ritmo cardíaco normal', Icon: IconCheck };
   }
   if ((bpm >= 40 && bpm < 60) || (bpm > 100 && bpm <= 130)) {
-    return { color: 'text-yellow-500', animation: 'animate-pulse-fast', text: 'Ritmo cardíaco irregular', Icon: IconWarning };
+    return { color: 'text-[#eab308]', animation: 'animate-pulse-fast', text: 'Ritmo cardíaco irregular', Icon: IconWarning };
   }
   if (bpm < 40 || bpm > 130) {
-    return { color: 'text-red-500', animation: 'animate-ping', text: '¡Ritmo cardíaco peligroso!', Icon: IconWarning };
+    return { color: 'text-[#ef4444]', animation: 'animate-ping', text: '¡Ritmo cardíaco peligroso!', Icon: IconWarning };
   }
-  return { color: 'text-gray-500', animation: '', text: 'Dato no concluyente', Icon: IconWarning };
+  return { color: 'text-[#6b7280]', animation: '', text: 'Dato no concluyente', Icon: IconWarning };
 }
 
 function getOxygenStatus(spo2) {
   if (spo2 >= 95) {
-    return { color: 'text-green-500', stroke: '#22c55e', text: 'Nivel de oxígeno normal', Icon: IconCheck };
+    return { color: 'text-green-500', stroke: '#4dc278ff', text: 'Nivel de oxígeno normal', Icon: IconCheck };
   }
   if (spo2 >= 90 && spo2 < 95) {
     return { color: 'text-yellow-500', stroke: '#eab308', text: 'Nivel de oxígeno bajo', Icon: IconWarning };
@@ -121,6 +119,19 @@ export default function PacienteDetalle() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const fetchVitals = useCallback(async () => {
+    if (!pacienteId) return;
+
+    try {
+      console.log(`Refrescando vitales para ${pacienteId}...`);
+      const datos = await getDatosRelevantes(pacienteId);
+      setDatosRelevantes(datos);
+    } catch (e) {
+      // No seteamos un error de página completa, solo falló el refresco
+      console.error("Error al refrescar vitales:", e.message);
+    }
+  }, [pacienteId]);
+
   useEffect(() => {
     if (!user) {
       navigate("/auth");
@@ -143,9 +154,7 @@ export default function PacienteDetalle() {
           throw new Error("Paciente no encontrado o no autorizado.");
         }
         setPaciente(pacEncontrado);
-
-        const datos = await getDatosRelevantes(pacienteId);
-        setDatosRelevantes(datos);
+        await fetchVitals();
 
       } catch (e) {
         setError(e.message || "Error al cargar los datos del paciente.");
@@ -155,7 +164,22 @@ export default function PacienteDetalle() {
     };
 
     fetchData();
-  }, [pacienteId, user, navigate]);
+  }, [pacienteId, user, navigate, fetchVitals]);
+
+  useEffect(() => {
+    if (paciente) {
+      console.log("Iniciando poller de vitales...");
+      const intervalId = setInterval(() => {
+        fetchVitals(); // Llama a la función de refresco
+      }, 15000); // Cada 15 segundos
+
+      // Limpia el intervalo cuando el usuario sale de esta página
+      return () => {
+        console.log("Deteniendo poller de vitales.");
+        clearInterval(intervalId);
+      };
+    }
+  }, [paciente, fetchVitals]);
 
   // --- VISTAS DE ESTADO ---
   const renderStatus = (message) => (
@@ -299,86 +323,25 @@ export default function PacienteDetalle() {
         </div>
       </div>
       
-      {/* --- 5. CORRECCIÓN: ESTILOS DE MAPA AÑADIDOS --- */}
       <style>{`
         @keyframes zoom-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .animate-zoom-in { animation: zoom-in 0.7s cubic-bezier(.4,0,.2,1) both; }
 
-        /* --- Marcador Pulsante --- */
-        @keyframes pulse {
-          0% { transform: scale(0.9); opacity: 1; }
-          70% { transform: scale(2.5); opacity: 0; }
-          100% { transform: scale(0.9); opacity: 0; }
+        /* --- Animaciones de Pulso (Se quedan) --- */
+        @keyframes pulse-normal {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.1); opacity: 0.7; }
         }
-        .pulsing-marker {
-          width: 20px;
-          height: 20px;
-          background-color: #2563eb;
-          border-radius: 50%;
-          border: 2px solid white;
-          box-shadow: 0 0 8px rgba(0,0,0,0.5);
-          position: relative;
-        }
-        .pulsing-marker::before {
-          content: '';
-          position: absolute;
-          width: 100%;
-          height: 100%;
-          top: 0;
-          left: 0;
-          background-color: #3b82f6;
-          border-radius: 50%;
-          animation: pulse 2s infinite;
-          z-index: -1;
+        .animate-pulse-normal {
+          animation: pulse-normal 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
         
-        /* --- Popup Personalizado --- */
-        .custom-leaflet-popup .leaflet-popup-content-wrapper {
-          background-color: #ffffff;
-          border-radius: 12px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          border: 1px solid #eee;
+        @keyframes pulse-fast {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.15); opacity: 0.8; }
         }
-        .custom-leaflet-popup .leaflet-popup-content {
-          margin: 0;
-          padding: 0;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-        }
-        .custom-leaflet-popup .leaflet-popup-tip {
-          background: #ffffff;
-        }
-        .custom-leaflet-popup a.leaflet-popup-close-button {
-          color: #555;
-          padding: 8px 8px 0 0;
-        }
-        
-        /* Contenido interno del popup */
-        .custom-popup-content {
-          padding: 14px 18px;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          font-size: 14px;
-          line-height: 1.5;
-          min-width: 220px;
-        }
-        .custom-popup-content strong {
-          font-weight: 600;
-          color: #111827;
-        }
-        .custom-popup-content hr {
-          border: 0;
-          height: 1px;
-          background-color: #f3f4f6;
-          margin: 4px 0;
-        }
-        .custom-popup-content .fecha {
-          font-size: 12px;
-          color: #6b7280;
-          margin-top: 4px;
-        }
-        .custom-popup-content span {
-          color: #374151;
+        .animate-pulse-fast {
+          animation: pulse-fast 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
       `}</style>
     </div>

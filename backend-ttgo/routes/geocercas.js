@@ -139,16 +139,20 @@ router.post('/verificar', async (req, res) => {
     if (!dispositivo_id || lat === undefined || lng === undefined) {
       return res.status(400).json({ mensaje: 'Faltan dispositivo_id, lat o lng' });
     }
-    
-    const parsedLat = parseLatitud(lat);
-    const parsedLng = parseLongitud(lng);
-    const currentLocation = { lat: parsedLat, lng: parsedLng };
 
     const paciente = await Paciente.findOne({ dispositivo_id: dispositivo_id });
     if (!paciente) {
       return res.status(404).json({ mensaje: 'Dispositivo no registrado' });
     }
 
+    const parsedLat = parseLatitud(lat);
+    const parsedLng = parseLongitud(lng);
+    const isNullIsland = (parsedLat === 0 && parsedLng === 0);
+    if (isNullIsland) {
+      return res.json({ inside: paciente.estaEnGeocerca });
+    }
+
+    const currentLocation = { lat: parsedLat, lng: parsedLng };
     const estadoPrevio = paciente.estaEnGeocerca;
     const geocercas = await Geocerca.find({ paciente: paciente._id });
     let estadoActual = false; // Asume que está fuera

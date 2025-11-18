@@ -1,5 +1,5 @@
 // src/Dashboard.js
-import React, { useContext, useEffect, useState, useRef, useMemo } from "react";
+import React, { useContext, useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "./auth/AuthContext";
 import {
@@ -19,6 +19,7 @@ import NotificacionPopup from "./components/NotificacionPopup.jsx";
 import { listarAlertas } from "./services/alertas";
 import AlertasView from "./components/AlertasView.jsx";
 import MapaGeneralView from "./components/MapaGeneralView.jsx";
+
 
 const IconDevice = () => (
   <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -79,7 +80,7 @@ const IconHeart = () => (
 );
 const IconOxygen = () => (
   <svg className="w-4 h-4 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.708 2.372a2.382 2.382 0 0 0 -.71 .686l-4.892 7.26c-1.981 3.314 -1.22 7.466 1.767 9.882c2.969 2.402 7.286 2.402 10.254 0c2.987 -2.416 3.748 -6.569 1.795 -9.836l-4.919 -7.306c-.722 -1.075 -2.192 -1.376 -3.295 -.686z" />
   </svg>
 );
 const IconClock = () => (
@@ -120,9 +121,7 @@ const IconBell = () => (
   </svg>
 );
 const IconMap = () => (
-  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13v-6m0 6l5.447 2.724A1 1 0 0015 20.382V9.618a1 1 0 00-1.447-.894L9 11m0-4v6m0-6V3a1 1 0 011-1h2a1 1 0 011 1v6m0 0L15 7l5.447-2.724A1 1 0 0122 5.618v10.764a1 1 0 01-1.447.894L15 15m0 0v-6" />
-  </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-map-pin-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 18.5l-3 -1.5l-6 3v-13l6 -3l6 3l6 -3v7" /><path d="M9 4v13" /><path d="M15 7v5" /><path d="M21.121 20.121a3 3 0 1 0 -4.242 0c.418 .419 1.125 1.045 2.121 1.879c1.051 -.89 1.759 -1.516 2.121 -1.879z" /><path d="M19 18v.01" /></svg>
 );
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -249,7 +248,7 @@ export default function Dashboard() {
   const [unseenAlertsCount, setUnseenAlertsCount] = useState(0); // Para el "9+"
   const toastedAlertIds = useRef(new Set());
 
-  const cargarPacientes = async () => {
+  const cargarPacientes = useCallback( async () => {
     try {
       const data = await listarPacientes();
       setPacientes(data);
@@ -287,7 +286,7 @@ export default function Dashboard() {
     } catch (e) {
       console.error("Error al listar pacientes:", e);
     }
-  };
+  }, []);
 
   const { pacientesPaginados, totalPages } = useMemo(() => {
     const lowerFiltro = filtroNombre.toLowerCase();
@@ -326,7 +325,7 @@ export default function Dashboard() {
     return { pacientesPaginados: paginados, totalPages: total };
   }, [pacientes, filtroNombre, currentPage, sortConfig, geofenceCounts]);
 
-  const cargarAlertas = async () => {
+  const cargarAlertas = useCallback( async () => {
     try {
       const data = await listarAlertas();
       setAlertas(data);
@@ -353,6 +352,9 @@ export default function Dashboard() {
           message: popupMessage
         });
         setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000); // 3 seg
+
+        console.log("Alerta detectada, forzando refresco de datos.");
+        cargarPacientes();
       }
 
     } catch (e) {
@@ -360,7 +362,7 @@ export default function Dashboard() {
     } finally {
       setIsLoadingAlertas(false);
     }
-  };
+  }, [cargarPacientes]);
 
   useEffect(() => {
     if (user) {
@@ -376,18 +378,19 @@ export default function Dashboard() {
       cargarPacientes();
       cargarAlertas();
     }
-  }, [user]);
+  }, [user, cargarPacientes, cargarAlertas]);
 
   useEffect(() => {
     if (user) {
       const intervalId = setInterval(() => {
-        console.log("Buscando nuevas alertas...");
+        console.log("Buscando nuevas alertas y refrescando datos de pacientes...");
         cargarAlertas();
-      }, 60000); // 60 segundos
+        cargarPacientes();
+      }, 30000); // 30 segundos
 
       return () => clearInterval(intervalId);
     }
-  }, [user]);
+  }, [user, cargarAlertas, cargarPacientes]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -590,16 +593,15 @@ export default function Dashboard() {
 
     const geocercasDisponibles = geocercas || [];
     let locationPoint = null;
-    let locationStatus = "";
 
     const isWifi = (ultimoDato.latitud === 91.0 || ultimoDato.longitud === 181.0);
-    if (isWifi) {
-      locationStatus = "Conectado a WiFi";
-      if (ultimoGpsValido) {
-        locationPoint = { lat: ultimoGpsValido.latitud, lng: ultimoGpsValido.longitud };
-      }
-    } else {
+    const isNullIsland = (ultimoDato.latitud === 0 && ultimoDato.longitud === 0);
+    const isGpsValido = !isWifi && !isNullIsland;
+
+    if (isGpsValido) {
       locationPoint = { lat: ultimoDato.latitud, lng: ultimoDato.longitud };
+    } else {
+      locationPoint = ultimoGpsValido ? { lat: ultimoGpsValido.latitud, lng: ultimoGpsValido.longitud } : null;
     }
 
     let enGeocerca = false;
@@ -615,19 +617,27 @@ export default function Dashboard() {
       }
     }
 
-    if (locationStatus === "Conectado a WiFi") {
+    if (isWifi) {
       if (enGeocerca) {
         return { status: `Conectado a WiFi (Última ubicación en ${nombreGeocerca})`, icon: IconWifi, color: "text-green-600" };
-      } else if (locationPoint) {
-        // Está en WiFi, pero su último GPS válido estaba "Fuera"
+      } else if (locationPoint) { // Hay un GPS previo y estaba fuera
         return { status: `Conectado a WiFi (Fuera de zona)`, icon: IconWifi, color: "text-yellow-600" };
-      } else {
-        // Está en WiFi, pero NO tenemos historial de GPS
+      } else { // Hay WiFi pero no historial de GPS
         return { status: "Conectado a WiFi", icon: IconWifi, color: "text-gray-500" };
       }
     }
 
-    if (locationPoint) {
+    if (isNullIsland) {
+      if (enGeocerca) {
+        return { status: `Sin señal GPS (Última ubicación en ${nombreGeocerca})`, icon: IconLocationOff, color: "text-green-600" };
+      } else if (locationPoint) { // Hay un GPS previo y estaba fuera
+        return { status: `Sin señal GPS (Fuera de zona)`, icon: IconLocationOff, color: "text-red-600" };
+      } else { // Es 0,0 y no hay historial de GPS
+        return { status: "Sin señal GPS (Error 0,0)", icon: IconLocationOff, color: "text-yellow-600" };
+      }
+    }
+
+    if (isGpsValido) {
       if (enGeocerca) {
         return { status: `En ${nombreGeocerca}`, icon: IconHome, color: "text-green-600" };
       } else {
@@ -660,7 +670,7 @@ export default function Dashboard() {
           {/* Botón de Alerta */}
           <button
             onClick={() => setCurrentView('alertas')}
-            className="relative text-gray-300 hover:text-white focus:outline-none"
+            className={`relative ${currentView === 'alertas' ? 'text-white' : 'text-gray-300'} hover:text-white focus:outline-none`}
             title="Ver alertas"
           >
             <IconBell />
@@ -1054,82 +1064,6 @@ export default function Dashboard() {
           }
           .animate-fade-in-down {
             animation: fade-in-down 0.5s cubic-bezier(.4,0,.2,1) both;
-          }
-
-          @keyframes pulse {
-            0% { transform: scale(0.9); opacity: 1; }
-            70% { transform: scale(2.5); opacity: 0; }
-            100% { transform: scale(0.9); opacity: 0; }
-          }
-          .pulsing-marker {
-            width: 20px;
-            height: 20px;
-            background-color: #2563eb; /* azul más fuerte */
-            border-radius: 50%;
-            border: 2px solid white;
-            box-shadow: 0 0 8px rgba(0,0,0,0.5);
-            position: relative;
-          }
-          .pulsing-marker::before {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            background-color: #3b82f6; /* azul */
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-            z-index: -1;
-          }
-          
-          /* --- Popup Personalizado --- */
-          .custom-leaflet-popup .leaflet-popup-content-wrapper {
-            background-color: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            border: 1px solid #eee;
-          }
-          .custom-leaflet-popup .leaflet-popup-content {
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-          }
-          .custom-leaflet-popup .leaflet-popup-tip {
-            background: #ffffff;
-          }
-          .custom-leaflet-popup a.leaflet-popup-close-button {
-            color: #555;
-            padding: 8px 8px 0 0;
-          }
-          
-          /* Contenido interno del popup */
-          .custom-popup-content {
-            padding: 14px 18px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px; /* Espacio entre líneas */
-            font-size: 14px;
-            line-height: 1.5;
-            min-width: 220px; /* Ancho mínimo */
-          }
-          .custom-popup-content strong {
-            font-weight: 600;
-            color: #111827; /* Casi negro */
-          }
-          .custom-popup-content hr {
-            border: 0;
-            height: 1px;
-            background-color: #f3f4f6; /* Gris claro */
-            margin: 4px 0;
-          }
-          .custom-popup-content .fecha {
-            font-size: 12px;
-            color: #6b7280; /* Gris medio */
-            margin-top: 4px;
-          }
-          .custom-popup-content span {
-            color: #374151; /* Gris oscuro */
           }
         `}</style>
     </div>

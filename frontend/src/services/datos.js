@@ -12,8 +12,16 @@ function authHeaders() {
 
 function esGpsValido(dato) {
   if (!dato) return false;
-  const isWifi = (dato.latitud === 91.0 || dato.longitud === 181.0);
-  return !isWifi;
+  if (dato.latitud === 91.0 || dato.longitud === 181.0) {
+    return false;
+  }
+  
+  // Es Null Island (inválido)
+  if (dato.latitud === 0 && dato.longitud === 0) {
+    return false;
+  }
+  
+  return true; 
 }
 
 export async function getTodosLosDatos(pacienteId) {
