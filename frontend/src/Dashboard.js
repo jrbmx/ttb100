@@ -1065,6 +1065,82 @@ export default function Dashboard() {
           .animate-fade-in-down {
             animation: fade-in-down 0.5s cubic-bezier(.4,0,.2,1) both;
           }
+
+          @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 1; }
+            70% { transform: scale(2.5); opacity: 0; }
+            100% { transform: scale(0.9); opacity: 0; }
+          }
+          .pulsing-marker {
+            width: 20px;
+            height: 20px;
+            background-color: #2563eb; /* azul más fuerte */
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 8px rgba(0,0,0,0.5);
+            position: relative;
+          }
+          .pulsing-marker::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background-color: #3b82f6; /* azul */
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            z-index: -1;
+          }
+          
+          /* --- Popup Personalizado --- */
+          .custom-leaflet-popup .leaflet-popup-content-wrapper {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: 1px solid #eee;
+          }
+          .custom-leaflet-popup .leaflet-popup-content {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+          }
+          .custom-leaflet-popup .leaflet-popup-tip {
+            background: #ffffff;
+          }
+          .custom-leaflet-popup a.leaflet-popup-close-button {
+            color: #555;
+            padding: 8px 8px 0 0;
+          }
+          
+          /* Contenido interno del popup */
+          .custom-popup-content {
+            padding: 14px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px; /* Espacio entre líneas */
+            font-size: 14px;
+            line-height: 1.5;
+            min-width: 220px; /* Ancho mínimo */
+          }
+          .custom-popup-content strong {
+            font-weight: 600;
+            color: #111827; /* Casi negro */
+          }
+          .custom-popup-content hr {
+            border: 0;
+            height: 1px;
+            background-color: #f3f4f6; /* Gris claro */
+            margin: 4px 0;
+          }
+          .custom-popup-content .fecha {
+            font-size: 12px;
+            color: #6b7280; /* Gris medio */
+            margin-top: 4px;
+          }
+          .custom-popup-content span {
+            color: #374151; /* Gris oscuro */
+          }
         `}</style>
     </div>
   );
