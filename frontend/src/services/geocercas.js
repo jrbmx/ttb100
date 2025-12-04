@@ -1,4 +1,4 @@
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const API = process.env.REACT_APP_API_URL || 'https://api-ttgo-1080924017616.us-central1.run.app';
 
 function authHeaders() {
   const headers = { 'Content-Type': 'application/json' };

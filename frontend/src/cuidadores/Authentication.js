@@ -57,7 +57,7 @@ export default function DoubleSliderForm() {
     setPopup({ show: false, success: false, message: "" });
   
     try {
-      const res = await fetch("http://localhost:3000/api/cuidadores/login", {
+      const res = await fetch("https://api-ttgo-1080924017616.us-central1.run.app/api/cuidadores/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(loginForm),
@@ -166,7 +166,7 @@ export default function DoubleSliderForm() {
     setPopup({ show: false, success: false, message: "" });
 
     try {
-      const res = await fetch("http://localhost:3000/api/cuidadores/register", {
+      const res = await fetch("https://api-ttgo-1080924017616.us-central1.run.app/api/cuidadores/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(registerForm),

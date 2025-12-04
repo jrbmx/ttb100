@@ -17,7 +17,8 @@ const alertasRoutes = require('./routes/alertas')
 const app = express();
 
 // ---------- CORS (Express 5: sin usar '*') ----------
-const allowedOrigin = 'http://localhost:3001';
+const allowedOrigin = process.env.FRONTEND_URL;
+
 
 app.use(cors({
   origin: allowedOrigin,

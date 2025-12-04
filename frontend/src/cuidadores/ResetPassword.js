@@ -13,7 +13,7 @@ const ResetPassword = () => {
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [msg, setMsg] = useState("");
-  const API = process.env.REACT_APP_API_URL || "http://localhost:3000";
+  const API = process.env.REACT_APP_API_URL || "https://api-ttgo-1080924017616.us-central1.run.app";
 
   const onSubmit = async (e) => {
     e.preventDefault();

@@ -42,7 +42,7 @@ router.post('/register', async (req, res) => {
     await nuevoCuidador.save();
 
     const token  = jwt.sign({ id: nuevoCuidador._id }, JWT_SECRET, { expiresIn: '1d' });
-    const enlace = `http://localhost:3000/api/cuidadores/verificar/${token}`;
+    const enlace = `https://api-ttgo-1080924017616.us-central1.run.app/api/cuidadores/verificar/${token}`;
 
     await transporter.sendMail({
       from: `"AlzhTrack" <${process.env.EMAIL_USER}>`,
@@ -50,7 +50,7 @@ router.post('/register', async (req, res) => {
       subject: "Verifica tu cuenta en AlzhTrack",
       html: `
         <h3>Hola ${nombre},</h3>
-        <p>Gracias por registrarte. Verifica tu correo dando clic en:</p>
+        <p>Gracias por registrarte. Verifica tu correo dando click en:</p>
         <a href="${enlace}">Verificar cuenta</a>
         <p>El enlace expira en 24 horas.</p>
       `

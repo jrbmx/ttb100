@@ -7,7 +7,7 @@ const Login = () => {
   const { login } = useContext(AuthContext); // función login del contexto
   const [menuOpen, setMenuOpen] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
-  const API = process.env.REACT_APP_API_URL || "http://localhost:3000";
+  const API = process.env.REACT_APP_API_URL || "https://api-ttgo-1080924017616.us-central1.run.app";
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
 
