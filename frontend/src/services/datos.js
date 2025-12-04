@@ -24,19 +24,36 @@ function esGpsValido(dato) {
   return true; 
 }
 
-export async function getTodosLosDatos(pacienteId) {
-    const res = await fetch(`${API}/api/datos/paciente/${pacienteId}`, { 
+export async function getHistorial(pacienteId, fechaInicio = null, fechaFin = null) {
+    let url = `${API}/api/datos/paciente/${pacienteId}`;
+    
+    const params = new URLSearchParams();
+    
+    if (fechaInicio) params.append('inicio', fechaInicio);
+    if (fechaFin) params.append('fin', fechaFin);
+    
+    const offset = new Date().getTimezoneOffset();
+    params.append('offset', offset.toString());
+    
+    if (params.toString()) {
+        url += `?${params.toString()}`;
+    }
+
+    const res = await fetch(url, { 
         headers: authHeaders() 
     });
+    
     const data = await res.json().catch(() => ({}));
+    
     if (!res.ok) {
-        throw new Error(data.mensaje || 'Error obteniendo todos los datos');
+        throw new Error(data.mensaje || 'Error obteniendo historial');
     }
-    return data;
+    
+    return data; 
 }
 
 export async function getDatosRelevantes(pacienteId) {
-  const todosLosDatos = await getTodosLosDatos(pacienteId);
+  const todosLosDatos = await getHistorial(pacienteId);
 
   if (!todosLosDatos || todosLosDatos.length === 0) {
     return {

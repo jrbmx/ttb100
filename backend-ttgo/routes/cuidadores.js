@@ -10,30 +10,31 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 // ----------------- REGISTRO -----------------
 router.post('/register', async (req, res) => {
+  /* #swagger.tags = ['Autenticación y manejo del cuidador']
+     #swagger.description = 'Registro de un nuevo cuidador. Envía correo de verificación.'
+     #swagger.parameters['body'] = {
+        in: 'body',
+        required: true,
+        schema: {
+            nombre: 'Alberto',
+            apellidoP: 'Vega',
+            apellidoM: 'Monterrubio',
+            email: 'example@gmail.com',
+            telefono: '5512345688',
+            password: 'Passw0rd*'
+        }
+     }
+     #swagger.responses[201] = { description: 'Usuario creado. Correo enviado.' }
+     #swagger.responses[400] = { description: 'El correo ya está registrado' }
+  */
   try {
-    /*
-    #swagger.parameters['body'] = {
-      in: 'body', required: true, schema: {
-        nombre: 'Alberto', apellidoP: 'Vega', apellidoM: 'Monterrubio',
-        email: 'example@gmail.com', telefono: '5512345688', password: 'Passw0rd*'
-      }
-    }
-    */
     const { nombre, apellidoP, apellidoM, email, telefono, password } = req.body;
 
     const existing = await Cuidador.findOne({ email });
     if (existing) return res.status(400).json({ mensaje: 'Correo ya registrado' });
 
     const hash = await bcrypt.hash(password, 10);
-/*
-    const counter = await Counter.findOneAndUpdate(
-      { name: 'cuidador' },
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true }
-    );
-*/
     const nuevoCuidador = new Cuidador({
-      //id_cuidador: counter.seq,
       nombre, apellidoP, apellidoM, email, telefono,
       password: hash,
       verificado: false
@@ -65,6 +66,13 @@ router.post('/register', async (req, res) => {
 
 // ----------------- VERIFICAR CUENTA -----------------
 router.get('/verificar/:token', async (req, res) => {
+  /* #swagger.tags = ['Autenticación y manejo del cuidador']
+     #swagger.description = 'Endpoint accedido desde el correo para activar la cuenta.'
+     #swagger.parameters['token'] = { description: 'Token JWT enviado por email' }
+     #swagger.produces = ['text/html']
+     #swagger.responses[200] = { description: 'HTML de confirmación exitosa' }
+     #swagger.responses[400] = { description: 'HTML de error (token inválido)' }
+  */
   try {
     const { token } = req.params;
     const decoded = jwt.verify(token, JWT_SECRET);
@@ -77,6 +85,32 @@ router.get('/verificar/:token', async (req, res) => {
 
 // ----------------- LOGIN -----------------
 router.post('/login', async (req, res) => {
+  /* #swagger.tags = ['Autenticación y manejo del cuidador']
+     #swagger.description = 'Inicio de sesión. Devuelve Token JWT.'
+     #swagger.parameters['body'] = {
+        in: 'body',
+        required: true,
+        schema: {
+            email: 'example@gmail.com',
+            password: 'pass'
+        }
+     }
+     #swagger.responses[200] = { 
+        description: 'Login exitoso',
+        schema: {
+            mensaje: 'Inicio de sesión correcto',
+            token: 'eyJhbGciOiJIUzI1NiIsIn...',
+            cuidador: {
+                _id: '645...',
+                nombre: 'Alberto',
+                email: 'example@gmail.com',
+                verificado: true
+            }
+        }
+     }
+     #swagger.responses[401] = { description: 'Credenciales incorrectas' }
+     #swagger.responses[403] = { description: 'Cuenta no verificada' }
+  */
   try {
     const { email, password } = req.body;
 
@@ -90,7 +124,6 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ mensaje: 'Verifica tu correo antes de iniciar sesión' });
     }
 
-    // 👉 AQUÍ firmamos y respondemos con token + cuidador
     const token = jwt.sign({ id: cuidador._id }, JWT_SECRET, { expiresIn: '7d' });
 
     return res.json({
@@ -116,6 +149,14 @@ router.post('/login', async (req, res) => {
 
 // ----------------- OLVIDÉ MI CONTRASEÑA -----------------
 router.post('/forgot-password', async (req, res) => {
+  /* #swagger.tags = ['Autenticación y manejo del cuidador']
+     #swagger.description = 'Solicita un correo para restablecer contraseña.'
+     #swagger.parameters['body'] = {
+        in: 'body',
+        schema: { email: 'example@gmail.com' }
+     }
+     #swagger.responses[200] = { description: 'Correo enviado (si existe el usuario)' }
+  */
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ mensaje: 'Email es requerido' });
@@ -151,6 +192,18 @@ router.post('/forgot-password', async (req, res) => {
 
 // ----------------- RESTABLECER CONTRASEÑA -------------
 router.post('/reset-password', async (req, res) => {
+  /* #swagger.tags = ['Autenticación y manejo del cuidador']
+     #swagger.description = 'Establece una nueva contraseña usando el token recibido por correo.'
+     #swagger.parameters['body'] = {
+        in: 'body',
+        schema: { 
+            token: 'eyJ...',
+            password: 'NewPassw0rd*' 
+        }
+     }
+     #swagger.responses[200] = { description: 'Contraseña actualizada' }
+     #swagger.responses[400] = { description: 'Token inválido' }
+  */
   try {
     const { token, password } = req.body;
     if (!token || !password) {
@@ -180,6 +233,17 @@ router.post('/reset-password', async (req, res) => {
 
 // ----------------- ACTUALIZAR -----------------
 router.put('/:id', async (req, res) => {
+  /* #swagger.tags = ['Autenticación y manejo del cuidador']
+     #swagger.description = 'Actualiza datos del perfil del cuidador.'
+     #swagger.parameters['id'] = { description: 'ID del cuidador' }
+     #swagger.parameters['body'] = {
+        in: 'body',
+        schema: {
+            nombre: 'Alberto Nuevo',
+            telefono: '5599887766'
+        }
+     }
+  */
   try {
     const actualizado = await Cuidador.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(actualizado);
@@ -190,6 +254,10 @@ router.put('/:id', async (req, res) => {
 
 // ----------------- BORRAR -----------------
 router.delete('/:id', async (req, res) => {
+  /* #swagger.tags = ['Autenticación y manejo del cuidador']
+     #swagger.description = 'Elimina la cuenta del cuidador.'
+     #swagger.parameters['id'] = { description: 'ID del cuidador' }
+  */
   try {
     await Cuidador.findByIdAndDelete(req.params.id);
     res.status(200).json({ mensaje: 'Cuenta eliminada' });

@@ -12,7 +12,7 @@ export default function AsignarDispositivoModal({ open, onClose, onConfirm, paci
         className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl transform transition-all duration-500 animate-fade-in-up"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-xl font-bold text-center mb-4 text-green-600">Asignar Dispositivo</h3>
+        <h3 className="text-xl font-bold text-center mb-4 text-green-600">Asignar dispositivo al paciente</h3>
         <p className="text-center text-gray-700 mb-6">
           Ingresa el ID del dispositivo para 
           <strong className="block mt-2">{paciente.nombre} {paciente.apellidoP} {paciente.apellidoM}</strong>

@@ -9,6 +9,25 @@ const { isPointInPolygon } = require('../utils/geo')
 
 // Crea una geocerca nueva
 router.post('/', auth, async (req, res) => {
+  /* #swagger.tags = ['Geocercas']
+     #swagger.description = 'Crea una nueva zona segura (polígono) para un paciente.'
+     #swagger.security = [{ "bearerAuth": [] }]
+     #swagger.parameters['body'] = {
+        in: 'body',
+        required: true,
+        schema: {
+            pacienteId: "645...",
+            nombre: "Casa",
+            coords: [
+                [19.4326, -99.1332],
+                [19.4328, -99.1334],
+                [19.4325, -99.1330]
+            ]
+        }
+     }
+     #swagger.responses[200] = { description: 'Geocerca creada' }
+     #swagger.responses[400] = { description: 'Datos inválidos (mínimo 3 puntos)' }
+  */
   try {
     const { pacienteId, coords, nombre } = req.body;
     if (!pacienteId || !Array.isArray(coords) || coords.length < 3 || !nombre?.trim()) {
@@ -35,6 +54,11 @@ router.post('/', auth, async (req, res) => {
 
 // Lista TODAS las geocercas del paciente
 router.get('/:pacienteId', auth, async (req, res) => {
+  /* #swagger.tags = ['Geocercas']
+     #swagger.description = 'Obtiene todas las zonas seguras de un paciente.'
+     #swagger.security = [{ "bearerAuth": [] }]
+     #swagger.parameters['pacienteId'] = { description: 'ID del paciente' }
+  */
   try {
     const { pacienteId } = req.params;
     const docs = await Geocerca.find({ paciente: pacienteId, cuidador: req.user.id }).sort({ createdAt: 1 });
@@ -47,6 +71,18 @@ router.get('/:pacienteId', auth, async (req, res) => {
 
 // Actualiza UNA geocerca específica
 router.put('/:geocercaId', auth, async (req, res) => {
+  /* #swagger.tags = ['Geocercas']
+     #swagger.description = 'Actualiza el nombre o las coordenadas de una geocerca.'
+     #swagger.security = [{ "bearerAuth": [] }]
+     #swagger.parameters['geocercaId'] = { description: 'ID de la geocerca' }
+     #swagger.parameters['body'] = {
+        in: 'body',
+        schema: {
+            nombre: "Casa Nueva",
+            coords: [[19.1, -99.1], [19.2, -99.2], [19.3, -99.3]]
+        }
+     }
+  */
   try {
     console.log('PUT /api/geocercas/:geocercaId - Iniciando actualización');
     const { geocercaId } = req.params;
@@ -84,6 +120,11 @@ router.put('/:geocercaId', auth, async (req, res) => {
 
 // Elimina UNA geocerca específica
 router.delete('/:geocercaId', auth, async (req, res) => {
+  /* #swagger.tags = ['Geocercas']
+     #swagger.description = 'Elimina una zona segura.'
+     #swagger.security = [{ "bearerAuth": [] }]
+     #swagger.parameters['geocercaId'] = { description: 'ID de la geocerca' }
+  */
   try {
     console.log('DELETE /api/geocercas/:geocercaId - Iniciando eliminación');
     const { geocercaId } = req.params;
@@ -133,6 +174,22 @@ function parseLongitud(val) {
 }
 
 router.post('/verificar', async (req, res) => {
+  /* #swagger.tags = ['Geocercas']
+     #swagger.description = 'Endpoint lógico para el ESP32. Verifica si la coordenada actual está dentro de alguna geocerca y genera alertas.'
+     #swagger.parameters['body'] = {
+        in: 'body',
+        required: true,
+        schema: {
+            dispositivo_id: "a1b2c3d4...",
+            lat: "19.4326 N",
+            lng: "99.1322 W"
+        }
+     }
+     #swagger.responses[200] = { 
+        description: 'Verificación completada',
+        schema: { inside: true }
+     }
+  */
   try {
     const { dispositivo_id, lat, lng } = req.body;
 

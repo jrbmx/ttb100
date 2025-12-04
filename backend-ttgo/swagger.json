@@ -1,19 +1,43 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "API",
-    "description": "Observar la API",
-    "version": "1.0.0"
+    "title": "Overvak - Sistema de monitoreo remoto para personas con Alzheimer a través de un wearable.",
+    "description": "Documentación oficial de la API RESTful para el ecosistema **Overvak**. \n\nEste backend gestiona la comunicación entre los dispositivos wearables y la aplicación web. \n\n**Módulos del sistema:**\n1. **Autenticación:** Gestión de cuidadores y tokens.\n2. **Pacientes:** Vinculación de dispositivos y perfiles.\n3. **Datos IoT:** Ingesta de sensores, tales como el MAX30102, GPS (NEO6MV2) y acelerómetro.\n4. **Geocercas:** Algoritmos de punto en polígono para zonas seguras.\n5. **Alertas:** Notificaciones de emergencia.",
+    "version": "1.2.1"
   },
   "host": "localhost:3000",
   "basePath": "/",
   "schemes": [
     "http"
   ],
+  "securityDefinitions": {
+    "bearerAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Introduce tu token así: Bearer <tu_token>"
+    }
+  },
   "paths": {
+    "/api/health": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/api/datos/": {
       "post": {
-        "description": "",
+        "tags": [
+          "Datos del paciente"
+        ],
+        "description": "Recibe datos del sensor. Verifica umbrales y genera alertas automáticas de caídas, inactividad o sensor desconectado.",
         "parameters": [
           {
             "name": "body",
@@ -22,6 +46,10 @@
             "schema": {
               "type": "object",
               "properties": {
+                "dispositivo_id": {
+                  "type": "string",
+                  "example": "a1b2c3d4-1678886400"
+                },
                 "frecuencia": {
                   "type": "number",
                   "example": 85
@@ -38,9 +66,17 @@
                   "type": "number",
                   "example": -99.1322
                 },
-                "fecha": {
-                  "type": "string",
-                  "example": "2025-05-26T00:56:24.083Z"
+                "contacto_cardiaco": {
+                  "type": "boolean",
+                  "example": true
+                },
+                "caida_detectada": {
+                  "type": "boolean",
+                  "example": false
+                },
+                "inactividad_detectada": {
+                  "type": "boolean",
+                  "example": false
                 }
               }
             }
@@ -48,25 +84,120 @@
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Dato procesado correctamente",
+            "schema": {
+              "$ref": "#/definitions/Dato"
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Faltan datos del sensor o ID del dispositivo"
+          },
+          "404": {
+            "description": "Dispositivo no vinculado a un paciente"
           },
           "500": {
             "description": "Internal Server Error"
           }
         }
-      },
+      }
+    },
+    "/api/datos/paciente/{pacienteId}": {
       "get": {
-        "description": "",
+        "tags": [
+          "Datos del paciente"
+        ],
+        "description": "Obtiene el historial completo de datos de un paciente específico",
+        "parameters": [
+          {
+            "name": "pacienteId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "ID del paciente (MongoDB ID)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Lista de datos obtenida"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Paciente no encontrado o no autorizado"
+          },
+          "500": {
+            "description": "Internal Server Error"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/datos/reciente/{pacienteId}": {
+      "get": {
+        "tags": [
+          "Datos del paciente"
+        ],
+        "description": "Obtiene únicamente la última lectura registrada del paciente",
+        "parameters": [
+          {
+            "name": "pacienteId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "ID del paciente"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Último dato obtenido"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Sin datos o paciente no encontrado"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/cuidadores/register": {
       "post": {
-        "description": "",
+        "tags": [
+          "Autenticación y manejo del cuidador"
+        ],
+        "description": "Registro de un nuevo cuidador. Envía correo de verificación.",
         "parameters": [
           {
             "name": "body",
@@ -97,7 +228,7 @@
                 },
                 "password": {
                   "type": "string",
-                  "example": "pass"
+                  "example": "Passw0rd*"
                 }
               }
             }
@@ -105,10 +236,13 @@
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Usuario creado. Correo enviado."
+          },
+          "204": {
+            "description": "No Content"
           },
           "400": {
-            "description": "Bad Request"
+            "description": "El correo ya está registrado"
           },
           "500": {
             "description": "Internal Server Error"
@@ -118,28 +252,41 @@
     },
     "/api/cuidadores/verificar/{token}": {
       "get": {
-        "description": "",
+        "tags": [
+          "Autenticación y manejo del cuidador"
+        ],
+        "description": "Endpoint accedido desde el correo para activar la cuenta.",
+        "produces": [
+          "text/html"
+        ],
         "parameters": [
           {
             "name": "token",
             "in": "path",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "description": "Token JWT enviado por email"
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "HTML de confirmación exitosa"
+          },
+          "204": {
+            "description": "No Content"
           },
           "400": {
-            "description": "Bad Request"
+            "description": "HTML de error (token inválido)"
           }
         }
       }
     },
     "/api/cuidadores/login": {
       "post": {
-        "description": "",
+        "tags": [
+          "Autenticación y manejo del cuidador"
+        ],
+        "description": "Inicio de sesión. Devuelve Token JWT.",
         "parameters": [
           {
             "name": "body",
@@ -162,13 +309,134 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Login exitoso",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "mensaje": {
+                  "type": "string",
+                  "example": "Inicio de sesión correcto"
+                },
+                "token": {
+                  "type": "string",
+                  "example": "eyJhbGciOiJIUzI1NiIsIn..."
+                },
+                "cuidador": {
+                  "type": "object",
+                  "properties": {
+                    "_id": {
+                      "type": "string",
+                      "example": "645..."
+                    },
+                    "nombre": {
+                      "type": "string",
+                      "example": "Alberto"
+                    },
+                    "email": {
+                      "type": "string",
+                      "example": "example@gmail.com"
+                    },
+                    "verificado": {
+                      "type": "boolean",
+                      "example": true
+                    }
+                  }
+                }
+              },
+              "xml": {
+                "name": "main"
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Credenciales incorrectas"
           },
           "403": {
-            "description": "Forbidden"
+            "description": "Cuenta no verificada"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/cuidadores/forgot-password": {
+      "post": {
+        "tags": [
+          "Autenticación y manejo del cuidador"
+        ],
+        "description": "Solicita un correo para restablecer contraseña.",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string",
+                  "example": "example@gmail.com"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correo enviado (si existe el usuario)"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/cuidadores/reset-password": {
+      "post": {
+        "tags": [
+          "Autenticación y manejo del cuidador"
+        ],
+        "description": "Establece una nueva contraseña usando el token recibido por correo.",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "token": {
+                  "type": "string",
+                  "example": "eyJ..."
+                },
+                "password": {
+                  "type": "string",
+                  "example": "NewPassw0rd*"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contraseña actualizada"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Token inválido"
+          },
+          "404": {
+            "description": "Not Found"
           },
           "500": {
             "description": "Internal Server Error"
@@ -178,12 +446,85 @@
     },
     "/api/cuidadores/{id}": {
       "put": {
-        "description": "",
+        "tags": [
+          "Autenticación y manejo del cuidador"
+        ],
+        "description": "Actualiza datos del perfil del cuidador.",
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
+            "type": "string",
+            "description": "ID del cuidador"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "nombre": {
+                  "type": "string",
+                  "example": "Alberto Nuevo"
+                },
+                "telefono": {
+                  "type": "string",
+                  "example": "5599887766"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Autenticación y manejo del cuidador"
+        ],
+        "description": "Elimina la cuenta del cuidador.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "ID del cuidador"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/pacientes/": {
+      "post": {
+        "tags": [
+          "Pacientes"
+        ],
+        "description": "Registrar un nuevo paciente bajo el cuidado del usuario actual.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
             "type": "string"
           },
           {
@@ -195,23 +536,184 @@
               "properties": {
                 "nombre": {
                   "type": "string",
-                  "example": "Alberto"
+                  "example": "Juan"
                 },
                 "apellidoP": {
                   "type": "string",
-                  "example": "Vega"
+                  "example": "Pérez"
                 },
                 "apellidoM": {
                   "type": "string",
-                  "example": "Monterrubio"
+                  "example": "López"
                 },
-                "email": {
-                  "type": "string",
-                  "example": "example@gmail.com"
+                "edad": {
+                  "type": "number",
+                  "example": 75
                 },
-                "telefono": {
+                "dispositivo_id": {
                   "type": "string",
-                  "example": "5512345688"
+                  "example": "a1b2c3d4-1678886400"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Paciente registrado exitosamente"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Faltan campos obligatorios"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Conflicto: El ID del dispositivo ya está en uso por otro paciente."
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Pacientes"
+        ],
+        "description": "Obtiene la lista de todos los pacientes asociados al cuidador.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de pacientes"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/pacientes/{id}/ubicacion": {
+      "get": {
+        "tags": [
+          "Pacientes"
+        ],
+        "description": "Obtiene la última ubicación conocida (lat/long) de un paciente específico.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "ID del paciente"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ubicación encontrada",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "latitud": {
+                  "type": "number",
+                  "example": 19.4326
+                },
+                "longitud": {
+                  "type": "number",
+                  "example": -99.1332
+                },
+                "fecha": {
+                  "type": "string",
+                  "example": "2025-05-26T10:00:00.000Z"
+                }
+              },
+              "xml": {
+                "name": "main"
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Paciente no encontrado o sin datos de ubicación"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/pacientes/{id}": {
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "description": "Actualiza la información del paciente. Nota: Para reasignar un dispositivo, primero libéralo del paciente anterior.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "ID del paciente"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "nombre": {
+                  "type": "string",
+                  "example": "Juanito"
+                },
+                "edad": {
+                  "type": "number",
+                  "example": 76
+                },
+                "dispositivo_id": {
+                  "type": "string",
+                  "example": "nuevo-id-o-null"
                 }
               }
             }
@@ -219,20 +721,155 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Paciente actualizado"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflicto: El ID de dispositivo ya está en uso"
           },
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "delete": {
-        "description": "",
+        "tags": [
+          "Pacientes"
+        ],
+        "description": "Elimina un paciente del sistema.",
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
+            "type": "string",
+            "description": "ID del paciente"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Eliminado correctamente"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/geocercas/": {
+      "post": {
+        "tags": [
+          "Geocercas"
+        ],
+        "description": "Crea una nueva zona segura (polígono) para un paciente.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "pacienteId": {
+                  "type": "string",
+                  "example": "645..."
+                },
+                "nombre": {
+                  "type": "string",
+                  "example": "Casa"
+                },
+                "coords": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "example": [
+                      19.4325,
+                      -99.133
+                    ],
+                    "items": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Geocerca creada"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Datos inválidos (mínimo 3 puntos)"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/geocercas/{pacienteId}": {
+      "get": {
+        "tags": [
+          "Geocercas"
+        ],
+        "description": "Obtiene todas las zonas seguras de un paciente.",
+        "parameters": [
+          {
+            "name": "pacienteId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "ID del paciente"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
             "type": "string"
           }
         ],
@@ -240,27 +877,64 @@
           "200": {
             "description": "OK"
           },
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
-    "/api/ttgo/wifi-config": {
-      "post": {
-        "description": "",
+    "/api/geocercas/{geocercaId}": {
+      "put": {
+        "tags": [
+          "Geocercas"
+        ],
+        "description": "Actualiza el nombre o las coordenadas de una geocerca.",
         "parameters": [
+          {
+            "name": "geocercaId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "ID de la geocerca"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
             "schema": {
               "type": "object",
               "properties": {
-                "ssid": {
-                  "example": "any"
+                "nombre": {
+                  "type": "string",
+                  "example": "Casa Nueva"
                 },
-                "password": {
-                  "example": "any"
+                "coords": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "example": [
+                      19.3,
+                      -99.3
+                    ],
+                    "items": {
+                      "type": "number"
+                    }
+                  }
                 }
               }
             }
@@ -270,23 +944,471 @@
           "200": {
             "description": "OK"
           },
+          "204": {
+            "description": "No Content"
+          },
           "400": {
             "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Geocercas"
+        ],
+        "description": "Elimina una zona segura.",
+        "parameters": [
+          {
+            "name": "geocercaId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "ID de la geocerca"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/geocercas/verificar": {
+      "post": {
+        "tags": [
+          "Geocercas"
+        ],
+        "description": "Endpoint lógico para el ESP32. Verifica si la coordenada actual está dentro de alguna geocerca y genera alertas.",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "dispositivo_id": {
+                  "type": "string",
+                  "example": "a1b2c3d4..."
+                },
+                "lat": {
+                  "type": "string",
+                  "example": "19.4326 N"
+                },
+                "lng": {
+                  "type": "string",
+                  "example": "99.1322 W"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verificación completada",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "inside": {
+                  "type": "boolean",
+                  "example": true
+                }
+              },
+              "xml": {
+                "name": "main"
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Not Found"
           },
           "500": {
             "description": "Internal Server Error"
           }
         }
-      },
+      }
+    },
+    "/api/alertas/": {
       "get": {
-        "description": "",
+        "tags": [
+          "Alertas"
+        ],
+        "description": "Obtiene el historial de alertas (caídas, inactividad, etc.) del cuidador autenticado.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Lista de alertas recuperada con éxito",
+            "schema": {
+              "$ref": "#/definitions/Alerta"
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Error del servidor"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/alertas/{id}/vista": {
+      "put": {
+        "tags": [
+          "Alertas"
+        ],
+        "description": "Marca una alerta individual como leída/vista.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "ID de la alerta"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Alerta actualizada correctamente"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
           },
           "404": {
-            "description": "Not Found"
+            "description": "Alerta no encontrada o no pertenece al cuidador"
+          },
+          "500": {
+            "description": "Internal Server Error"
           }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/alertas/marcar-todas-vistas": {
+      "put": {
+        "tags": [
+          "Alertas"
+        ],
+        "description": "Acción masiva para marcar todas las alertas pendientes como leídas.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Todas las alertas fueron actualizadas",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "mensaje": {
+                  "type": "string",
+                  "example": "Todas las alertas han sido marcadas como leídas."
+                },
+                "modifiedCount": {
+                  "type": "number",
+                  "example": 5
+                }
+              },
+              "xml": {
+                "name": "main"
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "Cuidador": {
+      "type": "object",
+      "properties": {
+        "_id": {
+          "type": "string",
+          "example": "645d9b..."
+        },
+        "nombre": {
+          "type": "string",
+          "example": "Alberto"
+        },
+        "apellidoP": {
+          "type": "string",
+          "example": "Vega"
+        },
+        "apellidoM": {
+          "type": "string",
+          "example": "Monterrubio"
+        },
+        "email": {
+          "type": "string",
+          "example": "alberto@email.com"
+        },
+        "telefono": {
+          "type": "string",
+          "example": "5512345678"
+        },
+        "verificado": {
+          "type": "boolean",
+          "example": true
+        },
+        "createdAt": {
+          "type": "string",
+          "example": "2025-01-10T10:00:00Z"
+        },
+        "updatedAt": {
+          "type": "string",
+          "example": "2025-01-10T10:00:00Z"
+        }
+      }
+    },
+    "Paciente": {
+      "type": "object",
+      "properties": {
+        "_id": {
+          "type": "string",
+          "example": "645d9c..."
+        },
+        "dispositivo_id": {
+          "type": "string",
+          "example": "ESP32-MAC-ADDRESS"
+        },
+        "cuidador": {
+          "type": "string",
+          "example": "645d9b..."
+        },
+        "nombre": {
+          "type": "string",
+          "example": "Juan"
+        },
+        "apellidoP": {
+          "type": "string",
+          "example": "Pérez"
+        },
+        "apellidoM": {
+          "type": "string",
+          "example": "López"
+        },
+        "edad": {
+          "type": "number",
+          "example": 75
+        },
+        "estaEnGeocerca": {
+          "type": "boolean",
+          "example": true
+        },
+        "creadoEn": {
+          "type": "string",
+          "example": "2025-01-15T09:30:00Z"
+        }
+      }
+    },
+    "Dato": {
+      "type": "object",
+      "properties": {
+        "_id": {
+          "type": "string",
+          "example": "645d9d..."
+        },
+        "paciente": {
+          "type": "string",
+          "example": "645d9c..."
+        },
+        "frecuencia": {
+          "type": "number",
+          "example": 85
+        },
+        "oxigeno": {
+          "type": "number",
+          "example": 98
+        },
+        "latitud": {
+          "type": "number",
+          "example": 19.4326
+        },
+        "longitud": {
+          "type": "number",
+          "example": -99.1332
+        },
+        "contacto_cardiaco": {
+          "type": "boolean",
+          "example": true
+        },
+        "caida_detectada": {
+          "type": "boolean",
+          "example": false
+        },
+        "inactividad_detectada": {
+          "type": "boolean",
+          "example": false
+        },
+        "fecha": {
+          "type": "string",
+          "example": "2025-05-26T10:00:00.000Z"
+        }
+      }
+    },
+    "Alerta": {
+      "type": "object",
+      "properties": {
+        "_id": {
+          "type": "string",
+          "example": "645d9e..."
+        },
+        "cuidador": {
+          "type": "string",
+          "example": "645d9b..."
+        },
+        "paciente": {
+          "type": "string",
+          "example": "645d9c..."
+        },
+        "tipo": {
+          "type": "string",
+          "example": "caida"
+        },
+        "mensaje": {
+          "type": "string",
+          "example": "¡URGENTE! Se ha detectado una caída."
+        },
+        "vista": {
+          "type": "boolean",
+          "example": false
+        },
+        "createdAt": {
+          "type": "string",
+          "example": "2025-05-26T10:05:00.000Z"
+        },
+        "updatedAt": {
+          "type": "string",
+          "example": "2025-05-26T10:05:00.000Z"
+        }
+      }
+    },
+    "Geocerca": {
+      "type": "object",
+      "properties": {
+        "_id": {
+          "type": "string",
+          "example": "645d9f..."
+        },
+        "cuidador": {
+          "type": "string",
+          "example": "645d9b..."
+        },
+        "paciente": {
+          "type": "string",
+          "example": "645d9c..."
+        },
+        "nombre": {
+          "type": "string",
+          "example": "Casa"
+        },
+        "coords": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "lat": {
+                "type": "number",
+                "example": 19.4325
+              },
+              "lng": {
+                "type": "number",
+                "example": -99.133
+              }
+            }
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "example": "2025-02-01T08:00:00Z"
+        },
+        "updatedAt": {
+          "type": "string",
+          "example": "2025-02-01T08:00:00Z"
         }
       }
     }

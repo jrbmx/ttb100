@@ -67,3 +67,19 @@ export async function liberarDispositivo(pacienteId) {
     dispositivo_id: null 
   });
 }
+
+// Actualiza la configuración de alertas del paciente (umbrales)
+export async function actualizarConfiguracionPaciente(pacienteId, config) {
+  const res = await fetch(`${API}/api/pacientes/${pacienteId}/config`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(config),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.mensaje || 'Error al actualizar la configuración');
+  }
+  return data;
+}

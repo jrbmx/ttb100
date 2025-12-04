@@ -121,7 +121,17 @@ const IconBell = () => (
   </svg>
 );
 const IconMap = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-map-pin-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 18.5l-3 -1.5l-6 3v-13l6 -3l6 3l6 -3v7" /><path d="M9 4v13" /><path d="M15 7v5" /><path d="M21.121 20.121a3 3 0 1 0 -4.242 0c.418 .419 1.125 1.045 2.121 1.879c1.051 -.89 1.759 -1.516 2.121 -1.879z" /><path d="M19 18v.01" /></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-map-pin-2"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 18.5l-3 -1.5l-6 3v-13l6 -3l6 3l6 -3v7" /><path d="M9 4v13" /><path d="M15 7v5" /><path d="M21.121 20.121a3 3 0 1 0 -4.242 0c.418 .419 1.125 1.045 2.121 1.879c1.051 -.89 1.759 -1.516 2.121 -1.879z" /><path d="M19 18v.01" /></svg>
+);
+const IconSensorOff = () => (
+  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+  </svg>
+);
+const IconBed = () => ( // Para inactividad
+  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+  </svg>
 );
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -136,10 +146,10 @@ const playAlertSound = () => {
       // Creamos un *nuevo* oscilador y gainNode cada vez
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
-      
+
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
-      
+
       oscillator.type = 'sine'; // Un "beep" simple
       oscillator.frequency.setValueAtTime(880, startTime); // Tono
       gainNode.gain.setValueAtTime(0.5, startTime); // Volumen
@@ -248,7 +258,7 @@ export default function Dashboard() {
   const [unseenAlertsCount, setUnseenAlertsCount] = useState(0); // Para el "9+"
   const toastedAlertIds = useRef(new Set());
 
-  const cargarPacientes = useCallback( async () => {
+  const cargarPacientes = useCallback(async () => {
     try {
       const data = await listarPacientes();
       setPacientes(data);
@@ -325,20 +335,20 @@ export default function Dashboard() {
     return { pacientesPaginados: paginados, totalPages: total };
   }, [pacientes, filtroNombre, currentPage, sortConfig, geofenceCounts]);
 
-  const cargarAlertas = useCallback( async () => {
+  const cargarAlertas = useCallback(async () => {
     try {
       const data = await listarAlertas();
       setAlertas(data);
-      
+
       const unseenCount = data.filter(a => !a.vista).length;
       setUnseenAlertsCount(unseenCount);
 
       const newUnseenAlerts = data.filter(a => !a.vista && !toastedAlertIds.current.has(a._id));
 
       if (newUnseenAlerts.length > 0) {
-        const mostRecentAlert = newUnseenAlerts[0]; 
+        const mostRecentAlert = newUnseenAlerts[0];
         newUnseenAlerts.forEach(a => toastedAlertIds.current.add(a._id));
-        
+
         const isSalida = mostRecentAlert.tipo === 'salida_geocerca';
         const popupMessage = mostRecentAlert.mensaje;
 
@@ -418,7 +428,7 @@ export default function Dashboard() {
     };
 
     document.addEventListener('click', unlockAudio);
-    
+
     return () => {
       document.removeEventListener('click', unlockAudio);
     };
@@ -586,13 +596,23 @@ export default function Dashboard() {
 
   const getLocationStatus = (datosRelevantes, geocercas) => {
     const { ultimoDato, ultimoGpsValido } = datosRelevantes;
-
+    const statuses = [];
+    
     if (!ultimoDato) {
-      return { status: "Sin ubicación", icon: IconLocationOff, color: "text-gray-400" };
+      return [{ status: "Sin ubicación", icon: IconLocationOff, color: "text-gray-400" }];
+    }
+
+    if (ultimoDato.contacto_cardiaco === false) {
+      statuses.push({ status: "Sensor cardíaco desconectado", icon: IconSensorOff, color: "text-orange-500" });
+    }
+
+    if (ultimoDato.inactividad_detectada === true) {
+      statuses.push({ status: "Inactividad prolongada detectada", icon: IconBed, color: "text-yellow-600" });
     }
 
     const geocercasDisponibles = geocercas || [];
     let locationPoint = null;
+    let locationStatusPrefix = "";
 
     const isWifi = (ultimoDato.latitud === 91.0 || ultimoDato.longitud === 181.0);
     const isNullIsland = (ultimoDato.latitud === 0 && ultimoDato.longitud === 0);
@@ -602,6 +622,8 @@ export default function Dashboard() {
       locationPoint = { lat: ultimoDato.latitud, lng: ultimoDato.longitud };
     } else {
       locationPoint = ultimoGpsValido ? { lat: ultimoGpsValido.latitud, lng: ultimoGpsValido.longitud } : null;
+      if (isWifi) locationStatusPrefix = "WiFi: ";
+      if (isNullIsland) locationStatusPrefix = "Sin GPS: ";
     }
 
     let enGeocerca = false;
@@ -617,35 +639,27 @@ export default function Dashboard() {
       }
     }
 
-    if (isWifi) {
-      if (enGeocerca) {
-        return { status: `Conectado a WiFi (Última ubicación en ${nombreGeocerca})`, icon: IconWifi, color: "text-green-600" };
-      } else if (locationPoint) { // Hay un GPS previo y estaba fuera
-        return { status: `Conectado a WiFi (Fuera de zona)`, icon: IconWifi, color: "text-yellow-600" };
-      } else { // Hay WiFi pero no historial de GPS
-        return { status: "Conectado a WiFi", icon: IconWifi, color: "text-gray-500" };
-      }
+    if (enGeocerca) {
+      statuses.push({
+        status: `${locationStatusPrefix}En ${nombreGeocerca}`,
+        icon: IconHome,
+        color: "text-green-600"
+      });
+    } else if (locationPoint) {
+      statuses.push({
+        status: `${locationStatusPrefix}Fuera de zona segura`,
+        icon: IconAlert,
+        color: "text-red-600"
+      });
+    } else {
+      statuses.push({
+        status: isWifi ? "Conectado a WiFi" : "Sin señal GPS",
+        icon: isWifi ? IconWifi : IconLocationOff,
+        color: "text-gray-500"
+      });
     }
-
-    if (isNullIsland) {
-      if (enGeocerca) {
-        return { status: `Sin señal GPS (Última ubicación en ${nombreGeocerca})`, icon: IconLocationOff, color: "text-green-600" };
-      } else if (locationPoint) { // Hay un GPS previo y estaba fuera
-        return { status: `Sin señal GPS (Fuera de zona)`, icon: IconLocationOff, color: "text-red-600" };
-      } else { // Es 0,0 y no hay historial de GPS
-        return { status: "Sin señal GPS (Error 0,0)", icon: IconLocationOff, color: "text-yellow-600" };
-      }
-    }
-
-    if (isGpsValido) {
-      if (enGeocerca) {
-        return { status: `En ${nombreGeocerca}`, icon: IconHome, color: "text-green-600" };
-      } else {
-        return { status: "Fuera de zona segura", icon: IconAlert, color: "text-red-600" };
-      }
-    }
-
-    return { status: "Sin ubicación", icon: IconLocationOff, color: "text-gray-400" };
+    
+    return statuses;
   };
 
 
@@ -677,10 +691,10 @@ export default function Dashboard() {
             {unseenAlertsCount > 0 && (
               <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-xs font-bold text-white">
                 {unseenAlertsCount > 9 ? '9+' : unseenAlertsCount}
-              </span> 
+              </span>
             )}
           </button>
-      
+
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
@@ -723,7 +737,6 @@ export default function Dashboard() {
         {currentView === 'pacientes' && (
           <>
             <div className="bg-white rounded-xl shadow-2xl p-6 z-1 animate-zoom-in mb-6">
-              <h2 className="text-3xl font-bold tracking-tight text-center text-gray-800 mb-6">PANEL DE PACIENTES</h2>
               <div className="relative mb-6 max-w-lg mx-auto">
                 <input
                   type="text"
@@ -783,7 +796,7 @@ export default function Dashboard() {
                     const geocercasDelPaciente = geocercasCompletas[p._id] || [];
                     const ultimoDato = datosRelevantes.ultimoDato;
 
-                    const location = getLocationStatus(datosRelevantes, geocercasDelPaciente);
+                    const statuses = getLocationStatus(datosRelevantes, geocercasDelPaciente);
 
                     return (
                       <div key={p._id} className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-lg">
@@ -799,9 +812,14 @@ export default function Dashboard() {
                                 Geocercas: {geofenceCounts[p._id] ?? 0}
                               </span>
                             </div>
-                            <div className={`text-sm mt-2 font-medium flex items-center ${location.color}`}>
-                              <location.icon />
-                              {location.status}
+
+                            <div className="mt-2 space-y-1">
+                              {statuses.map((status, index) => (
+                                <div key={index} className={`text-sm font-medium flex items-center ${status.color}`}>
+                                  <status.icon />
+                                  <span className="ml-1">{status.status}</span>
+                                </div>
+                              ))}
                             </div>
 
                             <div className="border-t border-gray-100 mt-3 pt-3">
@@ -922,7 +940,7 @@ export default function Dashboard() {
             alertas={alertas}
             isLoading={isLoadingAlertas}
             onBackClick={() => setCurrentView('pacientes')}
-            onRefreshAlerts={cargarAlertas} 
+            onRefreshAlerts={cargarAlertas}
           />
         )}
 
