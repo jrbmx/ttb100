@@ -399,19 +399,19 @@ export default function PacienteDetalle() {
       setPopup({
         show: true,
         message: 'Configuración guardada correctamente.',
-        success: true
+        type: 'info'
       });
     } catch (err) {
       console.error("Error guardando config:", err);
       setPopup({
         show: true,
         message: err.message || "No se pudo guardar la configuración.",
-        success: false 
+        type: 'error'
       });
     } finally {
       setTimeout(() => {
         setPopup(prev => ({ ...prev, show: false }));
-      }, 3000);
+      }, 5000);
     }
   };
 
@@ -447,7 +447,7 @@ export default function PacienteDetalle() {
       <header className="fixed top-0 left-0 w-full bg-[#0F3D56] py-4 shadow-lg flex justify-between items-center px-6" style={{ zIndex: 1000 }}>
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white">
-            {paciente.nombre} {paciente.apellidoP}
+            {paciente.nombre} {paciente.apellidoP} {paciente.apellidoM}
           </h1>
           <p className="text-xs sm:text-sm text-gray-300">Edad: {paciente.edad} años</p>
         </div>

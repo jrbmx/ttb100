@@ -335,6 +335,27 @@ export default function Dashboard() {
     return { pacientesPaginados: paginados, totalPages: total };
   }, [pacientes, filtroNombre, currentPage, sortConfig, geofenceCounts]);
 
+  // Función para mapear el tipo de alerta de la BD al estilo del Popup
+  const getPopupType = (tipoAlerta) => {
+    switch (tipoAlerta) {
+      case 'caida':
+      case 'ritmo_anormal':
+      case 'oxigeno_bajo':
+        return 'error';
+
+      case 'salida_geocerca':
+      case 'inactividad':
+      case 'sensor_desconectado':
+        return 'warning';
+
+      case 'entrada_geocerca':
+        return 'success';
+
+      default:
+        return 'info';
+    }
+  };
+
   const cargarAlertas = useCallback(async () => {
     try {
       const data = await listarAlertas();
@@ -349,22 +370,26 @@ export default function Dashboard() {
         const mostRecentAlert = newUnseenAlerts[0];
         newUnseenAlerts.forEach(a => toastedAlertIds.current.add(a._id));
 
-        const isSalida = mostRecentAlert.tipo === 'salida_geocerca';
+        const popupType = getPopupType(mostRecentAlert.tipo);
         const popupMessage = mostRecentAlert.mensaje;
 
-        if (isSalida) {
-          playAlertSound();
+        if (popupType === 'error' || popupType === 'warning') {
+           playAlertSound(); 
         }
 
         setPopup({
           show: true,
-          success: !isSalida,
+          type: popupType,
           message: popupMessage
         });
-        setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000); // 3 seg
+        setTimeout(() => {
+            setPopup(prev => ({ ...prev, show: false }));
+        }, 5000);
 
         console.log("Alerta detectada, forzando refresco de datos.");
-        cargarPacientes();
+        if (popupType === 'error') {
+            cargarPacientes();
+        }
       }
 
     } catch (e) {
@@ -467,18 +492,18 @@ export default function Dashboard() {
       const updatedUser = await res.json();
       if (res.ok) {
         updateUser(updatedUser);
-        setPopup({ show: true, success: true, message: "Información actualizada" });
+        setPopup({ show: true, type: 'info', message: "Información actualizada" });
         setTimeout(() => {
           setPopup({ show: false, success: false, message: "" });
           setShowModal(false);
-        }, 1500);
+        }, 3000);
       } else {
-        setPopup({ show: true, success: false, message: "Error al actualizar" });
-        setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
+        setPopup({ show: true, type: 'error', message: "Error al actualizar" });
+        setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
       }
     } catch (err) {
-      setPopup({ show: true, success: false, message: "Error de red" });
-      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
+      setPopup({ show: true, type: 'error', message: "Error de red" });
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
     }
   };
 
@@ -488,19 +513,19 @@ export default function Dashboard() {
         method: "DELETE"
       });
       if (res.ok) {
-        setPopup({ show: true, success: true, message: "Cuenta eliminada correctamente" });
+        setPopup({ show: true, type: 'info', message: "Cuenta eliminada correctamente" });
         setTimeout(() => {
           setPopup({ show: false, success: false, message: "" });
           logout();
           navigate("/");
-        }, 1500);
+        }, 3000);
       } else {
-        setPopup({ show: true, success: false, message: "Error al eliminar la cuenta" });
-        setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
+        setPopup({ show: true, type: 'error', message: "Error al eliminar la cuenta" });
+        setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
       }
     } catch (err) {
-      setPopup({ show: true, success: false, message: "Error de red" });
-      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
+      setPopup({ show: true, type: 'error', message: "Error de red" });
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
     }
   };
 
@@ -540,12 +565,12 @@ export default function Dashboard() {
     try {
       await liberarDispositivo(pacienteParaLiberar._id);
       handleCancelarLiberar();
-      setPopup({ show: true, success: true, message: "Dispositivo liberado" });
-      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
+      setPopup({ show: true, type: 'info', message: "Dispositivo liberado" });
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
       await cargarPacientes();
     } catch (e) {
-      setPopup({ show: true, success: false, message: e.message });
-      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 2500);
+      setPopup({ show: true, type: 'error', message: e.message });
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
     } finally {
       setIsLiberando(false);
     }
@@ -572,11 +597,11 @@ export default function Dashboard() {
     try {
       await asignarDispositivo(pacienteParaAsignar._id, dispositivoIdInput);
       handleCancelarAsignar();
-      setPopup({ show: true, success: true, message: "Dispositivo asignado" });
-      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
+      setPopup({ show: true, type: 'info', message: "Dispositivo asignado" });
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
       await cargarPacientes();
     } catch (e) {
-      setPopup({ show: true, success: false, message: e.message });
+      setPopup({ show: true, type: 'error', message: e.message });
       setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
     } finally {
       setIsAsignando(false);
@@ -597,7 +622,7 @@ export default function Dashboard() {
   const getLocationStatus = (datosRelevantes, geocercas) => {
     const { ultimoDato, ultimoGpsValido } = datosRelevantes;
     const statuses = [];
-    
+
     if (!ultimoDato) {
       return [{ status: "Sin ubicación", icon: IconLocationOff, color: "text-gray-400" }];
     }
@@ -658,7 +683,7 @@ export default function Dashboard() {
         color: "text-gray-500"
       });
     }
-    
+
     return statuses;
   };
 
@@ -1003,11 +1028,11 @@ export default function Dashboard() {
               const g = await listarGeocercas(pacienteSeleccionado._id);
               setGeofenceCounts(m => ({ ...m, [pacienteSeleccionado._id]: Array.isArray(g) ? g.length : 0 }));
             }
-            setPopup({ show: true, success: true, message: "Geocerca(s) guardada(s)" });
-            setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1500);
+            setPopup({ show: true, type: 'info', message: "Geocerca(s) guardada(s)" });
+            setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
           } catch (e) {
-            setPopup({ show: true, success: false, message: e.message || "Error al refrescar geocercas" });
-            setTimeout(() => setPopup({ show: false, success: false, message: "" }), 1800);
+            setPopup({ show: true, type: 'error', message: e.message || "Error al refrescar geocercas" });
+            setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
           } finally {
             cerrarGeocerca();
           }

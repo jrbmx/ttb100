@@ -66,12 +66,16 @@ router.post('/', async (req, res) => {
 
     if (paciente.cuidador) {
       const alertasAGenerar = [];
+      const config = paciente.configuracion || {};
+      const HR_MIN = config.hrMin || 60;
+      const HR_MAX = config.hrMax || 100;
+      const OXY_MIN = config.oxyMin || 90;
 
       if (caida_detectada === true) {
         const ultimaCaidaReciente = await Alerta.findOne({
           paciente: paciente._id,
           tipo: 'caida',
-          createdAt: { $gt: new Date(Date.now() - 60 * 1000) } // Hace menos de 1 min
+          createdAt: { $gt: new Date(Date.now() - 60 * 1000) }
         });
 
         if (!ultimaCaidaReciente) {
@@ -79,37 +83,37 @@ router.post('/', async (req, res) => {
             cuidador: paciente.cuidador,
             paciente: paciente._id,
             tipo: 'caida',
-            mensaje: `¡URGENTE! Se ha detectado una CAÍDA de ${paciente.nombre}.`,
+            mensaje: `¡URGENTE! Se ha detectado una caída de ${paciente.nombre}.`,
             vista: false
           });
         }
       }
 
+      // 2. Inactividad
       if (inactividad_detectada === true) {
         const alertaInactividadPendiente = await Alerta.findOne({
           paciente: paciente._id,
           tipo: 'inactividad',
-          vista: false // <-- Si el cuidador no la ha visto, no generamos otra
+          vista: false
         });
 
         if (!alertaInactividadPendiente) {
-          // Opcional: Doble check de tiempo (ej: no mandar otra si la última vista fue hace 5 min)
-          // Pero con 'vista: false' suele ser suficiente.
           alertasAGenerar.push({
             cuidador: paciente.cuidador,
             paciente: paciente._id,
             tipo: 'inactividad',
-            mensaje: `Aviso: Se ha detectado inactividad prolongada en ${paciente.nombre}.`,
+            mensaje: `Se ha detectado inactividad prolongada de ${paciente.nombre}.`,
             vista: false
           });
         }
       }
 
+      // 3. Sensor Desconectado
       if (contacto_cardiaco === false) {
          const alertaSensorPendiente = await Alerta.findOne({
            paciente: paciente._id,
            tipo: 'sensor_desconectado',
-           vista: false // <-- Evita spam mientras el reloj sigue quitado
+           vista: false
          });
 
          if (!alertaSensorPendiente) {
@@ -121,6 +125,44 @@ router.post('/', async (req, res) => {
              vista: false
            });
          }
+      }
+
+      if (contacto_cardiaco === true) {
+          if (frecuencia > 0 && (frecuencia < HR_MIN || frecuencia > HR_MAX)) {
+              const alertaRitmoPendiente = await Alerta.findOne({
+                  paciente: paciente._id,
+                  tipo: 'ritmo_anormal',
+                  vista: false 
+              });
+
+              if (!alertaRitmoPendiente) {
+                  alertasAGenerar.push({
+                      cuidador: paciente.cuidador,
+                      paciente: paciente._id,
+                      tipo: 'ritmo_anormal',
+                      mensaje: `El ritmo cardíaco de ${paciente.nombre} es ${frecuencia} bpm (Rango: ${HR_MIN}-${HR_MAX}).`,
+                      vista: false
+                  });
+              }
+          }
+
+          if (oxigeno > 0 && oxigeno < OXY_MIN) {              
+              const alertaOxigenoPendiente = await Alerta.findOne({
+                  paciente: paciente._id,
+                  tipo: 'oxigeno_bajo',
+                  vista: false
+              });
+
+              if (!alertaOxigenoPendiente) {
+                  alertasAGenerar.push({
+                      cuidador: paciente.cuidador,
+                      paciente: paciente._id,
+                      tipo: 'oxigeno_bajo',
+                      mensaje: `La oxigenación de ${paciente.nombre} bajó a ${oxigeno}% (Mínimo: ${OXY_MIN}%).`,
+                      vista: false
+                  });
+              }
+          }
       }
 
       // Guardar todas las alertas generadas
