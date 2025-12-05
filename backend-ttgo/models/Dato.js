@@ -49,6 +49,9 @@ const DatoSchema = new mongoose.Schema({
   oxigeno:    { type: Number, required: true },
   latitud: { type: Number, required: true, set: parseLatitud },
   longitud: { type: Number, required: true, set: parseLongitud },
+  contacto_cardiaco: { type: Boolean, default: true },
+  caida_detectada:   { type: Boolean, default: false },
+  inactividad_detectada: { type: Boolean, default: false },
   fecha: { type: Date, default: Date.now }
 });
 module.exports = mongoose.model('Dato', DatoSchema);

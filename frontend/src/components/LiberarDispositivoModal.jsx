@@ -12,7 +12,7 @@ export default function LiberarDispositivoModal({ open, onClose, onConfirm, paci
         className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl transform transition-all duration-500 animate-fade-in-up"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-xl font-bold text-center mb-4 text-red-600">Confirmar Acción</h3>
+        <h3 className="text-xl font-bold text-center mb-4 text-red-600">Liberación de dispositivo</h3>
         <p className="text-center text-gray-700 mb-6">
           ¿Estás seguro de que deseas liberar el dispositivo 
           <strong className="block my-2 bg-gray-100 p-2 rounded">{paciente.dispositivo_id}</strong>

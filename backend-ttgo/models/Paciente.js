@@ -20,6 +20,13 @@ const PacienteSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+
+  configuracion: {
+    hrMin: { type: Number, default: 60 },        // Ritmo cardiaco mínimo
+    hrMax: { type: Number, default: 100 },       // Ritmo cardiaco máximo
+    oxyMin: { type: Number, default: 90 },       // Oxigenación mínima
+    inactivityMin: { type: Number, default: 30 } // Minutos de inactividad permitidos
+  },
   creadoEn: { type: Date, default: Date.now }
 });
 

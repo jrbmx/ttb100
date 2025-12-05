@@ -16,7 +16,13 @@ const AlertaSchema = new mongoose.Schema({
   tipo: { 
     type: String, 
     required: true, 
-    enum: ['salida_geocerca', 'entrada_geocerca' ] 
+    enum: ['salida_geocerca', 
+      'entrada_geocerca', 
+      'caida', 
+      'inactividad', 
+      'sensor_desconectado', 
+      'ritmo_anormal',
+      'oxigeno_bajo' ] 
   },
   mensaje: { 
     type: String, 
