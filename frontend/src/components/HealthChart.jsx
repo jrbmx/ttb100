@@ -1,3 +1,4 @@
+// src/components/HealthChart.jsx
 import React, { useMemo } from 'react';
 import {
   Chart as ChartJS,
@@ -24,11 +25,25 @@ ChartJS.register(
 );
 
 export default function HealthChart({ data }) {
-  const chartData = useMemo(() => {
-    if (!data || data.length === 0) return null;
+  const reversedData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    const fullHistory = [...data].reverse();
+    const MAX_POINTS = 150; 
+    
+    if (fullHistory.length > MAX_POINTS) {
+        const step = Math.ceil(fullHistory.length / MAX_POINTS);
+        
+        return fullHistory.filter((_, index) => index % step === 0);
+    }
 
-    // Tomamos hasta 50 registros para la gráfica para ver más historia
-    const reversedData = [...data].slice(0, 50).reverse();
+    return fullHistory;
+  }, [data]);
+
+  const dataLength = reversedData.length;
+  const chartWidth = Math.max(600, dataLength * 30); 
+
+  const chartData = useMemo(() => {
+    if (dataLength === 0) return null;
 
     const labels = reversedData.map(d => {
       const date = new Date(d.fecha);
@@ -49,7 +64,8 @@ export default function HealthChart({ data }) {
           yAxisID: 'y',
           tension: 0.3,
           fill: true,
-          pointRadius: 2,
+          pointRadius: 3,
+          pointHoverRadius: 6,
         },
         {
           label: 'Oxígeno (%)',
@@ -59,11 +75,12 @@ export default function HealthChart({ data }) {
           yAxisID: 'y1',
           tension: 0.3,
           fill: true,
-          pointRadius: 2,
+          pointRadius: 3,
+          pointHoverRadius: 6,
         },
       ],
     };
-  }, [data]);
+  }, [reversedData, dataLength]);
 
   const options = {
     responsive: true,
@@ -85,21 +102,34 @@ export default function HealthChart({ data }) {
         padding: 12,
         cornerRadius: 8,
         displayColors: true,
+        callbacks: {
+           title: (context) => {
+             const index = context[0].dataIndex;
+             const datoOriginal = reversedData[index];
+             if (!datoOriginal) return "";
+             const d = new Date(datoOriginal.fecha);
+             return d.toLocaleString('es-MX', { 
+               weekday: 'long', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+             });
+           }
+        }
       }
     },
     scales: {
       x: {
         grid: { display: false },
-        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8, font: { size: 10 } }
+        ticks: { 
+          maxRotation: 0, 
+          autoSkip: true, 
+          maxTicksLimit: 12, // Limitamos etiquetas en el eje X para limpieza visual
+          font: { size: 10 } 
+        }
       },
       y: {
         type: 'linear',
         display: true,
         position: 'left',
-        title: { display: true, text: 'pulsaciones por minuto', color: '#ef4444', font: { weight: 'bold' } },
-        // --- CORRECCIÓN AQUÍ ---
-        // Usamos 'suggestedMin' en lugar de 'min'. 
-        // Si los datos bajan de 40, la escala se adaptará automáticamente.
+        title: { display: true, text: 'BPM', color: '#ef4444', font: { weight: 'bold' } },
         suggestedMin: 40, 
         suggestedMax: 120,
       },
@@ -107,10 +137,8 @@ export default function HealthChart({ data }) {
         type: 'linear',
         display: true,
         position: 'right',
-        title: { display: true, text: '% saturación de oxígeno en la sangre', color: '#3b82f6', font: { weight: 'bold' } },
+        title: { display: true, text: '% SpO2', color: '#3b82f6', font: { weight: 'bold' } },
         grid: { drawOnChartArea: false },
-        // --- CORRECCIÓN AQUÍ ---
-        // Si el oxígeno cae a 0 (sensor desconectado), la gráfica bajará hasta 0.
         suggestedMin: 80,
         max: 100, 
       },
@@ -122,8 +150,18 @@ export default function HealthChart({ data }) {
   }
 
   return (
-    <div className="w-full h-[350px]">
-      <Line options={options} data={chartData} />
+    <div className="w-full h-[350px] overflow-x-auto bg-white rounded-lg border border-gray-100 p-2 shadow-inner custom-scrollbar">
+      {/* El ancho se ajusta dinámicamente según los puntos filtrados */}
+      <div style={{ width: `${chartWidth}px`, height: '100%', minWidth: '100%' }}>
+        <Line options={options} data={chartData} />
+      </div>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+      `}</style>
     </div>
   );
 }

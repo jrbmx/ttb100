@@ -41,9 +41,12 @@ const IconClock = () => (
 
 // Icono Desconexión
 const IconDisconnect = () => (
-  <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.486 9.173L12 10.686l-1.486-1.514a3 3 0 10-4.243 4.243l1.514 1.486L6.257 16.4a1 1 0 01-1.414 0l-1.414-1.414a1 1 0 010-1.414l5.657-5.657a1 1 0 011.414 0l1.414 1.414L10.514 10.8l1.486 1.514 1.486-1.514a3 3 0 114.243 4.243l-1.514 1.486 1.514 1.514a1 1 0 010 1.414l-1.414 1.414a1 1 0 01-1.414 0l-5.657-5.657a1 1 0 010-1.414l1.414-1.414 1.514 1.486z" />
-  </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="w-6 h-6 text-amber-600">
+    <path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14.986 3.51a9 9 0 1 0 1.514 16.284c2.489 -1.437 4.181 -3.978 4.5 -6.794" /><path d="M10 10h.01" />
+    <path d="M14 8h.01" />
+    <path d="M12 15c1 -1.333 2 -2 3 -2" />
+    <path d="M20 9v.01" /><path d="M20 6a2.003 2.003 0 0 0 .914 -3.782a1.98 1.98 0 0 0 -2.414 .483" />
+    </svg>
 );
 
 // --- Iconos de Navegación ---
