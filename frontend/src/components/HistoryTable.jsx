@@ -27,7 +27,7 @@ export default function HistoryTable({ data }) {
         <table className="min-w-full text-sm text-left">
           <thead className="bg-gray-50 text-gray-700 font-medium border-b">
             <tr>
-              <th className="px-6 py-3">Fecha y hora</th>
+              <th className="px-6 py-3 text-center">Fecha y hora</th>
               <th className="px-6 py-3 text-center">Frecuencia</th>
               <th className="px-6 py-3 text-center">Oxígeno</th>
               <th className="px-6 py-3 text-center">Ubicación (latitud, longitud)</th>
@@ -55,7 +55,7 @@ export default function HistoryTable({ data }) {
 
               return (
                 <tr key={row._id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-3 text-gray-600 whitespace-nowrap">
+                  <td className="px-6 py-3 text-center text-gray-600 whitespace-nowrap">
                     {date.toLocaleDateString('es-MX')} <span className="text-gray-400 mx-1">|</span> {date.toLocaleTimeString('es-MX')}
                   </td>
                   <td className="px-6 py-3 text-center font-medium text-gray-800">

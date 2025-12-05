@@ -128,9 +128,21 @@ const IconSensorOff = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
   </svg>
 );
-const IconBed = () => ( // Para inactividad
-  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+const IconBed = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="w-4 h-4 mr-1.5">
+    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+    <path d="M7 9m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+    <path d="M22 17v-3h-20" /><path d="M2 8v9" />
+    <path d="M12 14h10v-2a3 3 0 0 0 -3 -3h-7v5z" />
+    </svg>
+);
+const IconFall = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="w-5 h-5">
+    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+    <path d="M11 21l1 -5l-1 -4l-3 -4h4l3 -3" />
+    <path d="M6 16l-1 -4l3 -4" />
+    <path d="M6 5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+    <path d="M13.5 12h2.5l4 2" />
   </svg>
 );
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -300,10 +312,14 @@ export default function Dashboard() {
 
   const { pacientesPaginados, totalPages } = useMemo(() => {
     const lowerFiltro = filtroNombre.toLowerCase();
+    
     const filtrados = filtroNombre
-      ? pacientes.filter(p => `${p.nombre} ${p.apellidoP} ${p.apellidoM}`.toLowerCase().includes(lowerFiltro))
-      : [...pacientes]; // Usar una copia para no mutar el estado original
-
+      ? pacientes.filter(p => {
+          const nombreCompleto = `${p.nombre} ${p.apellidoP} ${p.apellidoM}`.toLowerCase();
+          const idDispositivo = p.dispositivo_id ? p.dispositivo_id.toLowerCase() : '';
+          return nombreCompleto.includes(lowerFiltro) || idDispositivo.includes(lowerFiltro);
+        })
+      : [...pacientes];
 
     filtrados.sort((a, b) => {
       let aValue;
@@ -619,12 +635,29 @@ export default function Dashboard() {
     setPopup({ ...popup, show: false }); // Cierra el toast
   };
 
-  const getLocationStatus = (datosRelevantes, geocercas) => {
+  const getLocationStatus = (datosRelevantes, geocercas, alertasDelPaciente = []) => {
     const { ultimoDato, ultimoGpsValido } = datosRelevantes;
     const statuses = [];
 
     if (!ultimoDato) {
       return [{ status: "Sin ubicación", icon: IconLocationOff, color: "text-gray-400" }];
+    }
+
+    const MINUTOS_MEMORIA = 60; 
+    const ahora = new Date();
+
+    const alertaCaidaReciente = alertasDelPaciente.find(a => {
+        const fechaAlerta = new Date(a.createdAt);
+        const diffMins = (ahora - fechaAlerta) / 1000 / 60;
+        return a.tipo === 'caida' && diffMins < MINUTOS_MEMORIA && !a.vista;
+    });
+
+    if (ultimoDato.caida_detectada === true || alertaCaidaReciente) {
+      statuses.push({ 
+        status: "¡CAÍDA DETECTADA!", 
+        icon: IconFall,
+        color: "text-red-700 font-bold" 
+      });
     }
 
     if (ultimoDato.contacto_cardiaco === false) {
@@ -767,7 +800,7 @@ export default function Dashboard() {
                   type="text"
                   value={filtroNombre}
                   onChange={(e) => setFiltroNombre(e.target.value)}
-                  placeholder="Buscar paciente por nombre..."
+                  placeholder="Buscar paciente por nombre o ID del dispositivo..."
                   className="w-full border border-gray-300 rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
                 />
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
@@ -821,7 +854,12 @@ export default function Dashboard() {
                     const geocercasDelPaciente = geocercasCompletas[p._id] || [];
                     const ultimoDato = datosRelevantes.ultimoDato;
 
-                    const statuses = getLocationStatus(datosRelevantes, geocercasDelPaciente);
+                    const alertasDelPaciente = alertas.filter(alerta => {
+                      const idEnAlerta = alerta.paciente._id || alerta.paciente; 
+                      return idEnAlerta === p._id;
+                    });
+
+                    const statuses = getLocationStatus(datosRelevantes, geocercasDelPaciente, alertasDelPaciente);
 
                     return (
                       <div key={p._id} className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-lg">
