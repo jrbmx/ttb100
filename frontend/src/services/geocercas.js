@@ -2,7 +2,7 @@ const API = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 
 function authHeaders() {
   const headers = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   if (token) headers['Authorization'] = `Bearer ${token}`;
   return headers;
 }
