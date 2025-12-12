@@ -14,6 +14,15 @@ export async function crearPaciente(payload) {
     headers: authHeaders(),
     body: JSON.stringify(payload),
   });
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+
+    window.location.href = '/auth'; 
+    return [];
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.mensaje || 'Error creando paciente');
   return data;
@@ -21,6 +30,15 @@ export async function crearPaciente(payload) {
 
 export async function listarPacientes() {
   const res = await fetch(`${API}/api/pacientes`, { headers: authHeaders() });
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+
+    window.location.href = '/auth'; 
+    return [];
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.mensaje || 'Error listando pacientes');
   return data;
@@ -30,6 +48,15 @@ export async function mostrarUbicacionPaciente(pacienteId) {
   const res = await fetch(`${API}/api/pacientes/${pacienteId}/ubicacion`, {
     headers: authHeaders() 
   });
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+
+    window.location.href = '/auth'; 
+    return [];
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.mensaje || 'Error al obtener la ubicación');
   return data; // { latitud, longitud, fecha }
@@ -43,6 +70,16 @@ async function actualizarPaciente(pacienteId, payload) {
     body: JSON.stringify(payload),
   });
 
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+
+    window.location.href = '/auth'; 
+    return [];
+  }
+
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
@@ -52,13 +89,36 @@ async function actualizarPaciente(pacienteId, payload) {
 }
 
 // Llama a la actualización para setear dispositivo_id a un valor
-export async function asignarDispositivo(pacienteId, dispositivoId) {
+export async function asignarDispositivo(pacienteId, dispositivoId, alias) {
   if (!dispositivoId || dispositivoId.trim() === '') {
     throw new Error('El ID del dispositivo no puede estar vacío');
   }
-  return await actualizarPaciente(pacienteId, { 
-    dispositivo_id: dispositivoId.trim() 
+
+  const res = await fetch(`${API}/api/pacientes/${pacienteId}/asignar`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ 
+      dispositivo_id: dispositivoId.trim(),
+      dispositivo_alias: alias ? alias.trim() : null 
+    }),
   });
+
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+    window.location.href = '/auth'; 
+    return [];
+  }
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    // Aquí atrapamos el mensaje del backend (ej: "El dispositivo ya está asignado a Juan...")
+    throw new Error(data.mensaje || `Error ${res.status} al asignar dispositivo`);
+  }
+  return data;
 }
 
 // Llama a la actualización para setear dispositivo_id a null
@@ -76,10 +136,26 @@ export async function actualizarConfiguracionPaciente(pacienteId, config) {
     body: JSON.stringify(config),
   });
 
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+
+    window.location.href = '/auth'; 
+    return [];
+  }
+
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
     throw new Error(data.mensaje || 'Error al actualizar la configuración');
   }
   return data;
+}
+
+export async function editarAliasDispositivo(pacienteId, nuevoAlias) {
+  return await actualizarPaciente(pacienteId, { 
+    dispositivo_alias: nuevoAlias 
+  });
 }

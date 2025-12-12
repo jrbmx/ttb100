@@ -63,7 +63,7 @@ export default function InfoCuidadorModal({
           <div className="p-2">
             <h3 className="text-xl font-bold text-center mb-6 text-gray-800 flex items-center justify-center">
               <IconInfo />
-              Mi Información
+              Mi información
             </h3>
             
             <form onSubmit={handleUpdateSubmit} className="space-y-4">
@@ -101,8 +101,7 @@ export default function InfoCuidadorModal({
                   value={form.apellidoM} 
                   onChange={onChange} 
                   placeholder="Apellido materno" 
-                  className="w-full border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-teal-500 transition" 
-                  required 
+                  className="w-full border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"  
                 />
               </div>
 

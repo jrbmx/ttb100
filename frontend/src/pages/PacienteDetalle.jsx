@@ -805,7 +805,7 @@ export default function PacienteDetalle() {
         onClose={() => setShowGeocerca(false)}
         onSaved={() => {
           setPopup({ show: true, message: "Geocercas actualizadas correctamente", type: 'success' });
-          setTimeout(() => setPopup(prev => ({ ...prev, show: false })), 3000);
+          setTimeout(() => setPopup(prev => ({ ...prev, show: false })), 5000);
           setShowGeocerca(false);
           // Si el mapa necesita refrescarse, PacienteMap debería manejarlo al cambiar el prop paciente
           // o puedes forzar un reload aquí si es crítico.

@@ -2,7 +2,7 @@
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 
 function authHeaders() {
-  const t = localStorage.getItem('token') || sessionStorage.getItem('token'); 
+  const t = localStorage.getItem('token') || sessionStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
     ...(t ? { Authorization: `Bearer ${t}` } : {})
@@ -15,41 +15,51 @@ function esGpsValido(dato) {
   if (dato.latitud === 91.0 || dato.longitud === 181.0) {
     return false;
   }
-  
+
   // Es Null Island (inválido)
   if (dato.latitud === 0 && dato.longitud === 0) {
     return false;
   }
-  
-  return true; 
+
+  return true;
 }
 
 export async function getHistorial(pacienteId, fechaInicio = null, fechaFin = null) {
-    let url = `${API}/api/datos/paciente/${pacienteId}`;
-    
-    const params = new URLSearchParams();
-    
-    if (fechaInicio) params.append('inicio', fechaInicio);
-    if (fechaFin) params.append('fin', fechaFin);
-    
-    const offset = new Date().getTimezoneOffset();
-    params.append('offset', offset.toString());
-    
-    if (params.toString()) {
-        url += `?${params.toString()}`;
-    }
+  let url = `${API}/api/datos/paciente/${pacienteId}`;
 
-    const res = await fetch(url, { 
-        headers: authHeaders() 
-    });
-    
-    const data = await res.json().catch(() => ({}));
-    
-    if (!res.ok) {
-        throw new Error(data.mensaje || 'Error obteniendo historial');
-    }
-    
-    return data; 
+  const params = new URLSearchParams();
+
+  if (fechaInicio) params.append('inicio', fechaInicio);
+  if (fechaFin) params.append('fin', fechaFin);
+
+  const offset = new Date().getTimezoneOffset();
+  params.append('offset', offset.toString());
+
+  if (params.toString()) {
+    url += `?${params.toString()}`;
+  }
+
+  const res = await fetch(url, {
+    headers: authHeaders()
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+
+    window.location.href = '/auth';
+    return [];
+  }
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.mensaje || 'Error obteniendo historial');
+  }
+
+  return data;
 }
 
 export async function getDatosRelevantes(pacienteId) {

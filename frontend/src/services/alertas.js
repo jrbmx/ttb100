@@ -13,6 +13,16 @@ export async function listarAlertas() {
   const res = await fetch(`${API}/api/alertas`, { 
     headers: authHeaders() 
   });
+
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+
+    window.location.href = '/auth'; 
+    return [];
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.mensaje || 'Error listando alertas');
   return data; // Devuelve array de Alertas
@@ -23,6 +33,16 @@ export async function marcarAlertaComoVista(alertaId) {
     method: 'PUT',
     headers: authHeaders(),
   });
+
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+
+    window.location.href = '/auth'; 
+    return [];
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.mensaje || 'Error marcando alerta como vista');
   return data; // Devuelve la alerta actualizada
@@ -33,6 +53,16 @@ export async function marcarTodasComoVistas() {
     method: 'PUT',
     headers: authHeaders(),
   });
+
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+
+    window.location.href = '/auth'; 
+    return [];
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.mensaje || 'Error marcando todas como vistas');
   return data; // Devuelve { mensaje, modifiedCount }
