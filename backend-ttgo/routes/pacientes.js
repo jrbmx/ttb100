@@ -4,6 +4,8 @@ const router = express.Router();
 
 const Dato = require('../models/Dato');
 const Paciente = require('../models/Paciente');
+const Geocerca = require('../models/Geocerca')
+const Alerta = require('../models/Alerta')
 const auth     = require('../middleware/auth');
 
 // POST /api/pacientes  (alta)
@@ -155,8 +157,28 @@ router.delete('/:id', auth, async (req, res) => {
      #swagger.parameters['id'] = { description: 'ID del paciente' }
      #swagger.responses[200] = { description: 'Eliminado correctamente' }
   */
-  await Paciente.findOneAndDelete({ _id: req.params.id, cuidador: req.user.id });
-  res.json({ ok: true });
+  try {
+    const pacienteId = req.params.id;
+    const cuidadorId = req.user.id;
+
+    const paciente = await Paciente.findOne({ _id: pacienteId, cuidador: cuidadorId });
+    if (!paciente) {
+      return res.status(404).json({ mensaje: 'Paciente no encontrado' });
+    }
+
+    await Promise.all([
+      Geocerca.deleteMany({ paciente: pacienteId }), // Borrar zonas
+      Dato.deleteMany({ paciente: pacienteId }),     // Borrar historial de sensores
+      Alerta.deleteMany({ paciente: pacienteId }),   // Borrar alertas
+      Paciente.deleteOne({ _id: pacienteId })        // borrar al paciente
+    ]);
+
+    res.json({ ok: true, mensaje: 'Paciente y todos sus datos eliminados correctamente.' });
+
+  } catch (e) {
+    console.error("Error eliminando paciente:", e);
+    res.status(500).json({ mensaje: 'Error del servidor al eliminar paciente' });
+  }
 });
 
 // PUT /api/pacientes/:id/config (Actualizar configuración de alertas)

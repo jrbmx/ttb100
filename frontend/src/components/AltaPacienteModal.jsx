@@ -96,7 +96,6 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
               onChange={onChange} 
               placeholder="Hernández" 
               className="w-full border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-teal-500 transition" 
-              required 
             />
           </div>
 
@@ -107,7 +106,7 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
               name="edad" 
               value={form.edad} 
               onChange={onChange} 
-              placeholder="91" 
+              placeholder="65" 
               type="number" 
               min="0" 
               max = "100"
