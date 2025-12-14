@@ -51,14 +51,48 @@ router.post('/register', async (req, res) => {
     const enlace = `http://localhost:3000/api/cuidadores/verificar/${token}`;
 
     await transporter.sendMail({
-      from: `"AlzhTrack" <${process.env.EMAIL_USER}>`,
+      from: `"Overvak" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "Verifica tu cuenta en AlzhTrack",
+      subject: "Bienvenido a Overvak - Verifica tu cuenta",
       html: `
-        <h3>Hola ${nombre},</h3>
-        <p>Gracias por registrarte. Verifica tu correo dando clic en:</p>
-        <a href="${enlace}">Verificar cuenta</a>
-        <p>El enlace expira en 24 horas.</p>
+        <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            
+            <div style="background-color: #0F3D56; padding: 30px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Overvak</h1>
+              <p style="color: #a0aec0; margin: 5px 0 0; font-size: 14px;">Cuidando a quienes más quieres</p>
+            </div>
+
+            <div style="padding: 40px 30px; color: #333333;">
+              <h2 style="color: #0F3D56; margin-top: 0;">¡Hola, ${nombre}!</h2>
+              <p style="font-size: 16px; line-height: 1.5; color: #555555;">
+                Gracias por registrarte en la plataforma. Para comenzar a monitorear y cuidar a tus pacientes, necesitamos confirmar que este correo electrónico te pertenece.
+              </p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${enlace}" style="background-color: #3A6EA5; color: #ffffff; text-decoration: none; padding: 15px 30px; border-radius: 5px; font-weight: bold; font-size: 16px; display: inline-block;">
+                  Verificar mi Cuenta
+                </a>
+              </div>
+
+              <p style="font-size: 14px; color: #777777; margin-top: 30px;">
+                Si el botón anterior no funciona, copia y pega el siguiente enlace en tu navegador:
+              </p>
+              <p style="font-size: 12px; color: #3A6EA5; word-break: break-all;">
+                <a href="${enlace}" style="color: #3A6EA5;">${enlace}</a>
+              </p>
+              
+              <p style="font-size: 14px; color: #999999; margin-top: 20px;">
+                Este enlace expirará en 24 horas.
+              </p>
+            </div>
+
+            <div style="background-color: #f9f9f9; padding: 20px; text-align: center; font-size: 12px; color: #888888;">
+              <p style="margin: 0;">&copy; ${new Date().getFullYear()} Overvak. Todos los derechos reservados.</p>
+              <p style="margin: 5px 0 0;">Este es un correo automático, por favor no respondas a este mensaje.</p>
+            </div>
+          </div>
+        </div>
       `
     });
 
@@ -82,9 +116,59 @@ router.get('/verificar/:token', async (req, res) => {
     const { token } = req.params;
     const decoded = jwt.verify(token, JWT_SECRET);
     await Cuidador.findByIdAndUpdate(decoded.id, { verificado: true });
-    res.send('<h2>Cuenta verificada correctamente. Ya puedes iniciar sesión.</h2>');
+
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Verificación exitosa - Overvak</title>
+        <style>
+          body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #EEF6F8; margin: 0; }
+          .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 90%; }
+          h1 { color: #0F3D56; margin-bottom: 10px; font-size: 24px; }
+          .icon { font-size: 60px; color: #10b981; margin: 20px 0; }
+          p { color: #555; margin-bottom: 30px; line-height: 1.5; }
+          .btn { background-color: #3A6EA5; color: white; padding: 12px 30px; border-radius: 50px; text-decoration: none; font-weight: bold; transition: background 0.3s; display: inline-block; }
+          .btn:hover { background-color: #2c527a; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="icon">✓</div>
+          <h1>¡Cuenta Verificada!</h1>
+          <p>Tu correo ha sido confirmado correctamente.<br>Ya puedes cerrar esta ventana e iniciar sesión en la aplicación.</p>
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:3001'}" class="btn">Ir al Inicio</a>
+        </div>
+      </body>
+      </html>
+    `);
   } catch (err) {
-    res.status(400).send('<h2>Token inválido o expirado.</h2>');
+    res.status(400).send(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Error de Verificación</title>
+        <style>
+          body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #fdf2f2; margin: 0; }
+          .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 90%; border-top: 5px solid #ef4444; }
+          h1 { color: #991b1b; margin-bottom: 10px; font-size: 24px; }
+          .icon { font-size: 60px; color: #ef4444; margin: 20px 0; }
+          p { color: #555; margin-bottom: 30px; line-height: 1.5; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="icon">✕</div>
+          <h1>Enlace Inválido</h1>
+          <p>El enlace de verificación ha expirado o no es válido.<br>Por favor, intenta registrarte nuevamente.</p>
+        </div>
+      </body>
+      </html>
+    `);
   }
 });
 
@@ -177,14 +261,47 @@ router.post('/forgot-password', async (req, res) => {
     const resetLink  = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
     await transporter.sendMail({
-      from: `"AlzhTrack" <${process.env.EMAIL_USER}>`,
+      from: `"Overvak" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "Restablecer contraseña - AlzhTrack",
+      subject: "Restablecer contraseña - Overvak",
       html: `
-        <h3>Hola ${cuidador.nombre || ''}</h3>
-        <p>Haz clic en el siguiente enlace (expira en 1 hora):</p>
-        <p><a href="${resetLink}">${resetLink}</a></p>
-        <p>Si no solicitaste esto, ignora el correo.</p>
+        <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            
+            <div style="background-color: #0F3D56; padding: 30px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Overvak</h1>
+            </div>
+
+            <div style="padding: 40px 30px; color: #333333;">
+              <h2 style="color: #0F3D56; margin-top: 0;">Recuperación de Contraseña</h2>
+              <p style="font-size: 16px; line-height: 1.5; color: #555555;">
+                Hola <strong>${cuidador.nombre || 'Usuario'}</strong>,<br><br>
+                Hemos recibido una solicitud para restablecer la contraseña de tu cuenta. Si fuiste tú, haz clic en el botón de abajo para crear una nueva contraseña.
+              </p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${resetLink}" style="background-color: #D32F2F; color: #ffffff; text-decoration: none; padding: 15px 30px; border-radius: 5px; font-weight: bold; font-size: 16px; display: inline-block;">
+                  Restablecer Contraseña
+                </a>
+              </div>
+
+              <p style="font-size: 14px; color: #777777;">
+                Si no solicitaste este cambio, puedes ignorar este correo de forma segura. Tu contraseña no cambiará hasta que accedas al enlace.
+              </p>
+
+              <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+
+              <p style="font-size: 12px; color: #999999; word-break: break-all;">
+                ¿Problemas con el botón? Usa este enlace directamenente:<br>
+                <a href="${resetLink}" style="color: #3A6EA5;">${resetLink}</a>
+              </p>
+            </div>
+
+            <div style="background-color: #f9f9f9; padding: 20px; text-align: center; font-size: 12px; color: #888888;">
+              <p style="margin: 0;">&copy; ${new Date().getFullYear()} Overvak.</p>
+            </div>
+          </div>
+        </div>
       `
     });
 

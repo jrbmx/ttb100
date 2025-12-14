@@ -179,7 +179,7 @@ export default function Authentication() {
         {/* --- FORMULARIO REGISTRO --- */}
         <div className="form-container sign-up-container" ref={registerPanelRef}>
           <form onSubmit={(e)=>e.preventDefault()} className="h-full flex flex-col justify-center items-center"> 
-            <h1 className="text-3xl font-extrabold text-center text-gray-800 mb-4 tracking-tight">AlzhTrack</h1>
+            <h1 className="text-3xl font-extrabold text-center text-gray-800 mb-4 tracking-tight">Overvak</h1>
             <p className="text-center text-gray-600 mb-8 text-sm">Crea tu cuenta de cuidador.</p>
             
             <div className="w-full max-w-[350px] overflow-hidden">
@@ -238,7 +238,7 @@ export default function Authentication() {
         {/* --- FORMULARIO LOGIN --- */}
         <div className="form-container sign-in-container" ref={loginPanelRef}>
           <form onSubmit={handleLoginSubmit} className="h-full flex flex-col justify-center items-center">
-            <h1 className="text-3xl font-extrabold text-center text-gray-800 mb-4 tracking-tight">AlzhTrack</h1>
+            <h1 className="text-3xl font-extrabold text-center text-gray-800 mb-4 tracking-tight">Overvak</h1>
             <p className="text-center text-gray-600 mb-8">Ingresa a tu cuenta para acceder.</p>
             
             <div className="w-full max-w-[350px]">

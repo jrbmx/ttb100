@@ -508,7 +508,7 @@ export default function PacienteDetalle() {
       target: '.tour-mapa',
       title: 'Mapa',
       placement: 'right',
-      content: 'Muestra la última ubicación de este paciente. Usa el icono de capas (esquina superior derecha) para ver la vista por satélite o modo minimalista.',
+      content: 'Muestra la última ubicación de este paciente, así como sus zonas seguras. Usa el icono de capas (esquina superior derecha) para ver la vista por satélite o modo minimalista.',
     },
     {
       target: '.tour-navegar',
