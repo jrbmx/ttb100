@@ -61,7 +61,13 @@ router.get('/:pacienteId', auth, async (req, res) => {
   */
   try {
     const { pacienteId } = req.params;
-    const docs = await Geocerca.find({ paciente: pacienteId, cuidador: req.user.id }).sort({ createdAt: 1 });
+
+    const filter = { paciente: pacienteId };
+    if (req.user.rol !== 'admin') {
+        filter.cuidador = req.user.id;
+    }
+
+    const docs = await Geocerca.find(filter).sort({ createdAt: 1 });
     res.json(docs); // <- array
   } catch (e) {
     console.error('geocerca GET:', e);

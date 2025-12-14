@@ -82,7 +82,15 @@ export default function Authentication() {
       const data = await res.json();
       if (res.ok && data.token) {
         showPopup(true, "Inicio de sesión exitoso");
-        setTimeout(() => { login(data.cuidador, data.token, rememberMe); navigate("/dashboard"); }, 1500);
+        setTimeout(() => { 
+          login(data.cuidador, data.token, rememberMe); 
+
+          if (data.cuidador.rol === 'admin') {
+            navigate("/admin");
+          } else {
+            navigate("/dashboard");
+          }
+        }, 1500);
       } else {
         showPopup(false, data.mensaje || "Error al iniciar sesión");
       }

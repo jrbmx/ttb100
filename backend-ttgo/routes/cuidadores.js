@@ -227,6 +227,7 @@ router.post('/login', async (req, res) => {
         email: cuidador.email,
         telefono: cuidador.telefono,
         verificado: cuidador.verificado,
+        rol: cuidador.rol || 'user'
         //id_paciente: cuidador.id_paciente ?? null
       }
     });

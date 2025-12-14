@@ -8,6 +8,24 @@ function authHeaders() {
   };
 }
 
+export const obtenerPaciente = async (id) => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const response = await fetch(`${API}/api/pacientes/${id}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.mensaje || 'Error al obtener paciente');
+  }
+
+  return await response.json();
+};
+
 // Crear un nuevo paciente
 export async function crearPaciente(payload) {
   const res = await fetch(`${API}/api/pacientes`, {

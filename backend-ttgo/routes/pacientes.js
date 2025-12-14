@@ -71,6 +71,22 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const query = { _id: req.params.id };
+    if (req.user.rol !== 'admin') {
+        query.cuidador = req.user.id;
+    }
+
+    const paciente = await Paciente.findOne(query);
+    
+    if (!paciente) return res.status(404).json({ mensaje: 'Paciente no encontrado o acceso denegado' });
+    res.json(paciente);
+  } catch (e) {
+    res.status(500).json({ mensaje: 'Error obteniendo paciente' });
+  }
+});
+
 // GET /api/pacientes/:id/ubicacion (última ubicación del paciente)
 router.get('/:id/ubicacion', auth, async (req, res) => {
   /* #swagger.tags = ['Pacientes']
@@ -89,7 +105,13 @@ router.get('/:id/ubicacion', auth, async (req, res) => {
   */
   try {
     const pacienteId = req.params.id;
-    const paciente = await Paciente.findOne({ _id: pacienteId, cuidador: req.user.id });
+
+    const query = { _id: pacienteId };
+    if (req.user.rol !== 'admin') {
+       query.cuidador = req.user.id;
+    }
+
+    const paciente = await Paciente.findOne(query);
     if (!paciente) {
       return res.status(404).json({ mensaje: 'Paciente no encontrado o no autorizado' });
     }
