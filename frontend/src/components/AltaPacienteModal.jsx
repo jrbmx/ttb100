@@ -21,7 +21,7 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
     setError('');
 
     // Validar que exista token antes de llamar al backend
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     if (!token) {
       setError('Token requerido. Vuelve a iniciar sesión.');
       return;
@@ -63,7 +63,7 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
         <form onSubmit={onSubmit} className="space-y-4">
           {/* Campo Nombre */}
           <div>
-            <label className="block text-gray-700 mb-1 font-medium text-sm">Nombre</label>
+            <label className="block text-gray-700 mb-1 font-medium text-sm">Nombre*</label>
             <input 
               name="nombre" 
               value={form.nombre} 
@@ -76,7 +76,7 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
 
           {/* Campo Apellido Paterno */}
           <div>
-            <label className="block text-gray-700 mb-1 font-medium text-sm">Apellido paterno</label>
+            <label className="block text-gray-700 mb-1 font-medium text-sm">Apellido paterno*</label>
             <input 
               name="apellidoP" 
               value={form.apellidoP} 
@@ -101,7 +101,7 @@ export default function AltaPacienteModal({ open, onClose, onCreated }) {
 
           {/* Campo Edad */}
           <div>
-            <label className="block text-gray-700 mb-1 font-medium text-sm">Edad</label>
+            <label className="block text-gray-700 mb-1 font-medium text-sm">Edad*</label>
             <input 
               name="edad" 
               value={form.edad} 

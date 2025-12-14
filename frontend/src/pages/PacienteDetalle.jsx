@@ -13,6 +13,7 @@ import HealthChart from '../components/HealthChart.jsx';
 import HistoryTable from '../components/HistoryTable.jsx';
 import NotificacionPopup from '../components/NotificacionPopup';
 import GeocerceModal from '../components/GeocerceModal';
+import Joyride, { STATUS } from 'react-joyride';
 
 // ... (AudioContext y playAlertSound se mantienen igual) ...
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -264,7 +265,7 @@ const EditPatientModal = ({ open, onClose, paciente, onUpdate, onDelete }) => {
       <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl animate-pop-from-fab" onClick={(e) => e.stopPropagation()}>
 
         <h3 className="text-xl font-bold text-center mb-6 text-[#3A6EA5] flex items-center justify-center gap-2">
-          <IconEdit /> Editar paciente
+          <IconEdit /> Editar datos del paciente
         </h3>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -466,6 +467,100 @@ export default function PacienteDetalle() {
   const [showEdit, setShowEdit] = useState(false); // <--- NUEVO
   const [configAlertas, setConfigAlertas] = useState({ hrMin: 60, hrMax: 100, oxyMin: 90, inactivityMin: 30 });
   const [popup, setPopup] = useState({ show: false, message: '', success: true });
+  const [runTour, setRunTour] = useState(false);
+
+  const tourSteps = [
+    {
+      target: 'body',
+      content: '¡Bienvenido! Este es el panel de control completo del paciente. Te guiaremos por todas las funciones.',
+      placement: 'center',
+      disableBeacon: true,
+    },
+    // --- HEADER Y BOTONES ---
+    {
+      target: '.tour-edit-btn',
+      title: 'Editar datos del paciente',
+      content: 'Corrige errores en el nombre, edad o apellidos del paciente. Incluso, si lo decides así, puedes eliminar su perfil.',
+    },
+    {
+      target: '.tour-zonas-btn',
+      title: 'Configuración de zonas seguras',
+      content: 'Dibuja geocercas en el mapa. Si el paciente sale de ellas, recibirás una alerta.',
+    },
+    {
+      target: '.tour-alertas-btn',
+      title: 'Configuración de umbrales',
+      content: 'Define qué es "peligroso" para este paciente, por ejemplo, ritmo cardiaco mín/máx o nivel de oxígeno.',
+    },
+    {
+      target: '.tour-back-btn',
+      title: 'Regresar al dashboard',
+      content: 'Vuelve al dashboard principal con la lista de todos los pacientes.',
+    },
+    // --- RESUMEN ---
+    {
+      target: '.tour-resumen',
+      title: 'Resumen de estado',
+      content: 'Un vistazo rápido del estado de este paciente. Verás su tipo de conexión, si su sensor no hace contacto, si hay caídas, o inactividad detectada.',
+    },
+    // --- MAPA ---
+    {
+      target: '.tour-mapa',
+      title: 'Mapa',
+      placement: 'right',
+      content: 'Muestra la última ubicación de este paciente. Usa el icono de capas (esquina superior derecha) para ver la vista por satélite o modo minimalista.',
+    },
+    {
+      target: '.tour-navegar',
+      title: 'Navegación externa',
+      content: '¿Necesitas ir a buscar a tu paciente? Estos botones abren la ruta directa en Google Maps o Waze.',
+    },
+    // --- SIGNOS VITALES ---
+    {
+      target: '.tour-signos',
+      title: 'Monitor de signos vitales',
+      placement: 'left-start',
+      content: 'Los últimos datos recibidos de frecuencia cardíaca y oxigenación de este paciente. Los colores cambian a amarillo o rojo si hay riesgo.',
+    },
+    // --- HISTORIAL ---
+    {
+      target: '.tour-filtros',
+      title: 'Filtros de fecha',
+      content: 'Por defecto se visualizan todos los datos, pero aquí puedes consultar incidentes de días especificados.',
+    },
+    {
+      target: '.tour-grafica',
+      title: 'Gráfica de tendencias y eventos de alerta',
+      content: 'Gráfica visual para detectar patrones de este paciente.',
+    },
+    {
+      target: '.tour-tabla',
+      title: 'Bitácora detallada',
+      placement: 'right',
+      content: 'Cada dato recabado de este paciente por el dispositivo se guarda y muestra aquí.',
+    },
+    {
+      target: '.tour-historial-alertas',
+      title: 'Historial de incidentes',
+      placement: 'left',
+      content: 'Lista de todas las alertas generadas de este paciente con fecha y hora.',
+    },
+  ];
+
+  const handleJoyrideCallback = (data) => {
+    const { status } = data;
+    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+      setRunTour(false);
+      localStorage.setItem('tour_paciente_visto', 'true');
+    }
+  };
+
+  useEffect(() => {
+    const tourVisto = localStorage.getItem('tour_paciente_visto');
+    if (!tourVisto && !isLoading && paciente) {
+      setRunTour(true);
+    }
+  }, [isLoading, paciente]);
 
   const toastedAlertIds = useRef(new Set());
   const today = new Date().toLocaleDateString('en-CA');
@@ -658,6 +753,58 @@ export default function PacienteDetalle() {
 
   return (
     <div className="min-h-screen bg-[#EEF6F8] pb-10">
+      <Joyride
+        steps={tourSteps}
+        run={runTour}
+        continuous={true}
+        showSkipButton={true}
+        showProgress={true}
+        scrollOffset={150}
+        disableScrollParentFix={true}
+        callback={handleJoyrideCallback}
+        styles={{
+          options: {
+            primaryColor: '#0F3D56',
+            zIndex: 100000,
+          },
+          // Estilo específico para el TÍTULO
+          tooltipTitle: {
+            fontWeight: 'bold',      // Negritas
+            fontSize: '20px',        // Texto más grande
+            color: '#0F3D56',        // Tu color azul oscuro
+            textAlign: 'center',       // Alineado a la izquierda
+            marginBottom: '10px',    // Espacio para separarlo del texto
+          },
+          // Estilo para el CONTENIDO (el texto normal)
+          tooltipContent: {
+            textAlign: 'left',
+            fontSize: '16px',
+            color: '#4b5563',        // Un gris oscuro suave para leer mejor
+          },
+          // Estilo general del contenedor
+          tooltipContainer: {
+            textAlign: 'left',
+          },
+          // Botón "Siguiente"
+          buttonNext: {
+            backgroundColor: '#0F3D56',
+          },
+          // Botón "Atrás"
+          buttonBack: {
+            color: '#0F3D56',
+            marginRight: 10,
+          },
+          // El fondo oscuro
+          overlay: {
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          }
+        }}
+
+        floaterProps={{
+          disableAnimation: true,
+        }}
+        locale={{ back: 'Atrás', close: 'Cerrar', last: 'Finalizar', next: 'Siguiente', skip: 'Saltar' }}
+      />
       <header className="fixed top-0 left-0 w-full bg-[#0F3D56] py-5 sm:py-4 shadow-lg flex justify-between items-center px-6 sm:px-6" style={{ zIndex: 1000 }}>
         <div className="flex flex-col justify-center min-w-0 pr-2">
           <h1 className="text-base sm:text-2xl font-bold text-white leading-tight truncate max-w-[180px] sm:max-w-none">
@@ -669,7 +816,7 @@ export default function PacienteDetalle() {
         <div className="flex gap-2 items-center flex-shrink-0">
           <button
             onClick={() => setShowEdit(true)}
-            className="flex items-center justify-center px-3 sm:px-4 py-2 text-sm font-bold text-gray-700 bg-white rounded-lg shadow-md hover:bg-gray-100 transition-all border border-gray-200"
+            className="tour-edit-btn flex items-center justify-center px-3 sm:px-4 py-2 text-sm font-bold text-gray-700 bg-white rounded-lg shadow-md hover:bg-gray-100 transition-all border border-gray-200"
             title="Editar Paciente"
           >
             <IconEdit />
@@ -678,7 +825,7 @@ export default function PacienteDetalle() {
 
           <button
             onClick={() => setShowGeocerca(true)}
-            className="flex items-center justify-center px-3 sm:px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 transition-all border border-blue-500"
+            className="tour-zonas-btn flex items-center justify-center px-3 sm:px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 transition-all border border-blue-500"
             title="Configurar zonas seguras"
           >
             <IconMapPin />
@@ -687,7 +834,7 @@ export default function PacienteDetalle() {
 
           <button
             onClick={() => setShowConfig(true)}
-            className="flex items-center justify-center px-3 sm:px-4 py-2 text-sm font-bold text-white bg-emerald-600 rounded-lg shadow-md hover:bg-emerald-700 transition-all border border-emerald-500"
+            className="tour-alertas-btn flex items-center justify-center px-3 sm:px-4 py-2 text-sm font-bold text-white bg-emerald-600 rounded-lg shadow-md hover:bg-emerald-700 transition-all border border-emerald-500"
             title="Configurar umbrales"
           >
             <IconSettings />
@@ -695,8 +842,19 @@ export default function PacienteDetalle() {
           </button>
 
           <button
+            onClick={() => {
+              localStorage.removeItem('tour_paciente_visto'); // Borramos la memoria
+              setRunTour(true); // Forzamos el inicio
+            }}
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white font-bold text-sm transition-all border border-white/40"
+            title="Ver tutorial de ayuda"
+          >
+            ?
+          </button>
+
+          <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center justify-center px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-lg shadow-sm hover:bg-gray-100 border transition-all"
+            className="tour-back-btn flex items-center justify-center px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-lg shadow-sm hover:bg-gray-100 border transition-all"
           >
             <IconArrowLeft />
             <span className="hidden sm:inline">Dashboard</span>
@@ -719,7 +877,7 @@ export default function PacienteDetalle() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 tour-resumen">
             {statuses.map((item, idx) => (
               <div key={idx} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm transition-all ${item.color.includes('bg-') ? item.color : 'bg-gray-100 text-gray-700'}`}>
                 <item.icon />
@@ -733,12 +891,12 @@ export default function PacienteDetalle() {
       <div className="max-w-7xl mx-auto px-4 pb-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* MAPA */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-2xl overflow-hidden animate-zoom-in h-auto lg:h-[500px] border border-gray-100 flex flex-col">
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-2xl overflow-hidden animate-zoom-in h-auto lg:h-[500px] border border-gray-100 flex flex-col tour-mapa">
             <div className="h-[300px] lg:h-auto lg:flex-1 w-full relative z-0">
               <PacienteMap paciente={paciente} />
             </div>
 
-            {/* Barra de Acciones (Footer del mapa) - AUMENTADA */}
+            {/* Barra de Acciones (Footer del mapa) */}
             <div className="px-4 py-3 sm:px-6 sm:py-5 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3 z-10">
 
               {/* Indicador de estado de ubicación (Más grande) */}
@@ -758,16 +916,16 @@ export default function PacienteDetalle() {
                 )}
               </div>
 
-              {/* Botones de Navegación (Más grandes y llamativos) */}
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end">
+              {/* Botones de Navegación */}
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end tour-navegar">
                 <span className="text-sm text-gray-500 font-semibold hidden sm:block mr-1">Navegar con:</span>
 
                 <button
                   onClick={() => handleNavigate('google')}
                   disabled={!hasLocation}
                   className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all shadow-sm ${hasLocation
-                      ? "bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md transform hover:-translate-y-0.5"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    ? "bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md transform hover:-translate-y-0.5"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
                     }`}
                 >
                   <IconGoogleMaps /> Maps
@@ -777,8 +935,8 @@ export default function PacienteDetalle() {
                   onClick={() => handleNavigate('waze')}
                   disabled={!hasLocation}
                   className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all shadow-sm ${hasLocation
-                      ? "bg-cyan-500 text-white hover:bg-cyan-600 hover:shadow-md transform hover:-translate-y-0.5"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    ? "bg-cyan-500 text-white hover:bg-cyan-600 hover:shadow-md transform hover:-translate-y-0.5"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
                     }`}
                 >
                   <IconWaze /> Waze
@@ -788,7 +946,7 @@ export default function PacienteDetalle() {
           </div>
 
           {/* SIGNOS VITALES (Altura Fija 500px) */}
-          <div className="lg:col-span-1 bg-white rounded-xl shadow-2xl animate-zoom-in flex flex-col overflow-hidden h-auto min-h-[350px] lg:h-[500px] border border-gray-100">
+          <div className="lg:col-span-1 bg-white rounded-xl shadow-2xl animate-zoom-in flex flex-col overflow-hidden h-auto min-h-[350px] lg:h-[500px] border border-gray-100 tour-signos">
             {ultimoDato ? (
               <div className="p-6 flex flex-col flex-grow justify-between">
                 <div className="space-y-8">
@@ -833,8 +991,8 @@ export default function PacienteDetalle() {
         {/* --- TARJETA UNIFICADA DE HISTORIAL --- */}
         <div className="bg-white rounded-xl shadow-2xl animate-zoom-in overflow-hidden border border-gray-100">
 
-          {/* CABECERA CON FILTROS DE FECHA (Controlan todo abajo) */}
-          <div className="p-6 border-b border-gray-100 bg-gray-50 flex flex-col md:flex-row justify-center items-center gap-4">
+          {/* CABECERA CON FILTROS DE FECHA */}
+          <div className="p-6 border-b border-gray-100 bg-gray-50 flex flex-col md:flex-row justify-center items-center gap-4 tour-filtros">
             <div className="flex flex-row flex-wrap sm:flex-nowrap items-end justify-center gap-3">
               <CustomDatePicker label="Desde" value={fechaInicio} onChange={handleFechaInicioChange} max={fechaFin || today} />
               <CustomDatePicker label="Hasta" value={fechaFin} onChange={handleFechaFinChange} min={fechaInicio} max={today} />
@@ -850,7 +1008,7 @@ export default function PacienteDetalle() {
           <div className="p-6">
 
             {/* 1. GRÁFICA */}
-            <div className="mb-8">
+            <div className="mb-8 tour-grafica">
               <HealthChart data={historialData} />
             </div>
 
@@ -858,7 +1016,7 @@ export default function PacienteDetalle() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-[500px]">
 
               {/* COLUMNA IZQUIERDA: TABLA (2/3) */}
-              <div className="lg:col-span-2 flex flex-col h-[400px] lg:h-full overflow-hidden border rounded-lg border-gray-100 shadow-sm">
+              <div className="lg:col-span-2 flex flex-col h-[400px] lg:h-full overflow-hidden border rounded-lg border-gray-100 shadow-sm tour-tabla">
                 <div className="p-3 bg-gray-50 border-b border-gray-100 font-bold text-gray-600 text-sm uppercase tracking-wide">
                   Registros Detallados
                 </div>
@@ -868,7 +1026,7 @@ export default function PacienteDetalle() {
               </div>
 
               {/* COLUMNA DERECHA: ALERTAS (1/3) */}
-              <div className="lg:col-span-1 h-[350px] lg:h-full">
+              <div className="lg:col-span-1 h-[350px] lg:h-full tour-historial-alertas">
                 {/* Renderizamos la sección de alertas aquí */}
                 <AlertHistorySection alertas={listaAlertas} />
               </div>
@@ -904,7 +1062,7 @@ export default function PacienteDetalle() {
         onSaved={() => {
           setPopup({ show: true, message: "Geocercas actualizadas correctamente", type: 'success' });
           setTimeout(() => setPopup(prev => ({ ...prev, show: false })), 5000);
-          setShowGeocerca(false);
+          setShowGeocerca(true);
         }}
       />
 

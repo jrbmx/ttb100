@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner';
-
-// Ícono grande de "Enlace" para el encabezado
-const IconLinkBig = () => (
-  <svg className="w-12 h-12 text-teal-600 mx-auto mb-3 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-  </svg>
-);
+import Joyride, { STATUS } from 'react-joyride';
 
 // Ícono pequeño de cámara para el botón
 const IconCamera = () => (
@@ -29,6 +23,7 @@ export default function AsignarDispositivoModal({
   const [localId, setLocalId] = useState(""); 
   const [localAlias, setLocalAlias] = useState("");
   const [showScanner, setShowScanner] = useState(false);
+  const [runTour, setRunTour] = useState(false);
 
   useEffect(() => {
     setLocalId(idInput || "");
@@ -38,8 +33,45 @@ export default function AsignarDispositivoModal({
     if (open) {
       setLocalAlias("");
       setShowScanner(false);
+      
+      const tourVisto = localStorage.getItem('tour_asignar_qr_visto');
+      if (!tourVisto) {
+        // Iniciamos el tour tras un pequeño delay para asegurar renderizado
+        setTimeout(() => {
+            setRunTour(true);
+        }, 500);
+      }
+    } else {
+        // Si el modal se cierra por props externas, apagamos el tour
+        setRunTour(false);
     }
   }, [open]);
+
+  // --- NUEVA FUNCIÓN: Intercepta el cierre para guardar el estado del tour ---
+  const handleCloseModal = (e) => {
+    // Si el usuario cierra el modal manualmennte, asumimos que ya vio (o ignoró) el tutorial
+    if (e.target !== e.currentTarget) return;
+    localStorage.setItem('tour_asignar_qr_visto', 'true');
+    setRunTour(false);
+    onClose();
+  };
+
+  const handleJoyrideCallback = (data) => {
+    const { status } = data;
+    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+      setRunTour(false);
+      localStorage.setItem('tour_asignar_qr_visto', 'true');
+    }
+  };
+
+  const tourSteps = [
+    {
+      target: '.tour-camera-btn',
+      content: 'Si tu dispositivo tiene un código QR pegado, presiona aquí para escanearlo y llenar el ID automáticamente.',
+      disableBeacon: true,
+      placement: 'top',
+    }
+  ];
 
   const handleScan = (result) => {
     if (result && result.length > 0) {
@@ -57,6 +89,8 @@ export default function AsignarDispositivoModal({
   };
 
   const handleConfirmClick = () => {
+    // Al confirmar también guardamos que ya usó la función, por ende vio el tour
+    localStorage.setItem('tour_asignar_qr_visto', 'true');
     onConfirm(localId, localAlias);
   };
 
@@ -65,8 +99,24 @@ export default function AsignarDispositivoModal({
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-[1200] animate-popup-fade"
-      onClick={!showScanner ? onClose : undefined}
+      // Usamos handleCloseModal en lugar de onClose directo
+      onClick={!showScanner ? handleCloseModal : undefined}
     >
+      <Joyride
+        steps={tourSteps}
+        run={runTour}
+        continuous={true}
+        disableOverlayClose={true}
+        callback={handleJoyrideCallback}
+        styles={{
+          options: {
+            zIndex: 1300,
+            primaryColor: '#0d9488',
+          },
+        }}
+        locale={{ last: 'Entendido', }} 
+      />
+
       <div 
         className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl transform transition-all duration-500 animate-fade-in-up overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -78,12 +128,9 @@ export default function AsignarDispositivoModal({
           <strong className="block mt-1 text-gray-900 text-base">{paciente.nombre} {paciente.apellidoP} {paciente.apellidoM}</strong>
         </p>
         
-        {/* --- TARJETA DE FORMULARIO (Estilo unificado) --- */}
         <div className="bg-teal-50 border border-teal-100 rounded-2xl p-4 mb-6">
-            
             {!showScanner ? (
               <div className="space-y-4">
-                {/* Input ID + Botón Cámara */}
                 <div>
                   <label className="block text-teal-800 mb-1 font-bold text-xs uppercase tracking-wider ml-1">
                     ID Dispositivo (MAC)
@@ -97,7 +144,7 @@ export default function AsignarDispositivoModal({
                     />
                     <button 
                       onClick={() => setShowScanner(true)}
-                      className="bg-teal-100 hover:bg-teal-200 text-teal-700 rounded-lg p-2 transition flex items-center justify-center"
+                      className="tour-camera-btn bg-teal-100 hover:bg-teal-200 text-teal-700 rounded-lg p-2 transition flex items-center justify-center"
                       title="Escanear QR"
                     >
                       <IconCamera />
@@ -105,7 +152,6 @@ export default function AsignarDispositivoModal({
                   </div>
                 </div>
 
-                {/* Input Alias */}
                 <div>
                   <label className="block text-teal-800 mb-1 font-bold text-xs uppercase tracking-wider ml-1">
                     Nombre / Alias
@@ -121,7 +167,6 @@ export default function AsignarDispositivoModal({
                 </div>
               </div>
             ) : (
-              /* --- VISTA ESCÁNER INTEGRADA EN LA TARJETA --- */
               <div className="flex flex-col items-center justify-center py-2">
                 <div className="relative w-full h-48 rounded-xl overflow-hidden bg-black mb-3 border-2 border-teal-500 shadow-inner">
                    <Scanner
@@ -141,7 +186,6 @@ export default function AsignarDispositivoModal({
             )}
         </div>
 
-        {/* --- BOTONES DE ACCIÓN --- */}
         <div className="flex justify-around">
           <button 
             onClick={handleConfirmClick}
@@ -156,7 +200,8 @@ export default function AsignarDispositivoModal({
           </button>
           
           <button 
-            onClick={onClose}
+            // Usamos handleCloseModal para que guarde en localStorage al cancelar
+            onClick={handleCloseModal}
             disabled={isAsignando}
             className="border border-gray-300 text-gray-700 px-6 py-2 rounded-full transition transform hover:bg-gray-100 hover:scale-105 hover:shadow"
           >

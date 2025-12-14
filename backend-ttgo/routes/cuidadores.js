@@ -2,8 +2,13 @@ const express = require('express');
 const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
 const router  = express.Router();
+const auth    = require('../middleware/auth');
 
 const Cuidador = require('../models/Cuidador');
+const Paciente = require('../models/Paciente');
+const Dato     = require('../models/Dato');
+const Geocerca = require('../models/Geocerca');
+const Alerta   = require('../models/Alerta');
 const transporter = require('../utils/email/transporter');
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -232,7 +237,7 @@ router.post('/reset-password', async (req, res) => {
 });
 
 // ----------------- ACTUALIZAR -----------------
-router.put('/:id', async (req, res) => {
+router.put('/:id', auth, async (req, res) => {
   /* #swagger.tags = ['Autenticación y manejo del cuidador']
      #swagger.description = 'Actualiza datos del perfil del cuidador.'
      #swagger.parameters['id'] = { description: 'ID del cuidador' }
@@ -245,6 +250,9 @@ router.put('/:id', async (req, res) => {
      }
   */
   try {
+    if (req.user.id !== req.params.id) {
+        return res.status(403).json({ mensaje: 'No tienes permiso para modificar este usuario' });
+    }
     const actualizado = await Cuidador.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(actualizado);
   } catch (err) {
@@ -253,14 +261,37 @@ router.put('/:id', async (req, res) => {
 });
 
 // ----------------- BORRAR -----------------
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   /* #swagger.tags = ['Autenticación y manejo del cuidador']
      #swagger.description = 'Elimina la cuenta del cuidador.'
      #swagger.parameters['id'] = { description: 'ID del cuidador' }
   */
   try {
-    await Cuidador.findByIdAndDelete(req.params.id);
-    res.status(200).json({ mensaje: 'Cuenta eliminada' });
+    const cuidadorId = req.params.id;
+    if (req.user.id !== cuidadorId) {
+        return res.status(403).json({ mensaje: 'No tienes permiso para eliminar esta cuenta' });
+    }
+
+    const pacientes = await Paciente.find({ cuidador: cuidadorId }).select('_id');
+    const pacientesIds = pacientes.map(p => p._id);
+    await Promise.all([
+        // Borrar datos biométricos de todos los pacientes del cuidador
+        Dato.deleteMany({ paciente: { $in: pacientesIds } }),
+        
+        // Borrar geocercas de todos los pacientes del cuidador
+        Geocerca.deleteMany({ paciente: { $in: pacientesIds } }),
+        
+        // Borrar alertas de todos los pacientes del cuidador
+        Alerta.deleteMany({ paciente: { $in: pacientesIds } }),
+        
+        // Borrar a los pacientes mismos
+        Paciente.deleteMany({ cuidador: cuidadorId }),
+        
+        // Finalmente, borrar al cuidador
+        Cuidador.findByIdAndDelete(cuidadorId)
+    ]);
+
+    res.status(200).json({ mensaje: 'Cuenta y todos los datos asociados eliminados correctamente.' });
   } catch (err) {
     res.status(500).json({ mensaje: 'Error eliminando cuidador' });
   }

@@ -21,6 +21,7 @@ import NotificacionPopup from "./components/NotificacionPopup.jsx";
 import { listarAlertas } from "./services/alertas";
 import AlertasView from "./components/AlertasView.jsx";
 import MapaGeneralView from "./components/MapaGeneralView.jsx";
+import Joyride, { ACTIONS, EVENTS, STATUS } from 'react-joyride';
 
 const IconEdit = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -273,6 +274,141 @@ export default function Dashboard() {
   const [isLoadingAlertas, setIsLoadingAlertas] = useState(true);
   const [unseenAlertsCount, setUnseenAlertsCount] = useState(0); // Para el "9+"
   const toastedAlertIds = useRef(new Set());
+
+  const [runTour, setRunTour] = useState(false);
+  const [stepIndex, setStepIndex] = useState(0);
+
+  const tourSteps = useMemo(() => {
+    const hayPacientes = pacientes.length > 0;
+
+    // 1. Pasos Comunes (Se muestran siempre)
+    const pasosComunes = [
+      {
+        target: 'body',
+        title: 'Bienvenido a tu panel de control',
+        content: 'Desde aquí podrás monitorear a todos tus pacientes, ver sus signos vitales y gestionar sus dispositivos.',
+        placement: 'center',
+        disableBeacon: true,
+      },
+      {
+        target: '.tour-views-controls',
+        title: 'Vistas y alertas',
+        content: 'Alterna entre la lista, el mapa general o revisa el historial de notificaciones desde esta barra.',
+      },
+      {
+        target: '.tour-profile-menu',
+        title: 'Tu perfil',
+        content: 'Aquí puedes actualizar tus datos o cerrar sesión.',
+      },
+    ];
+
+    // 2. Escenario A: SI HAY PACIENTES (Tutorial Completo)
+    if (hayPacientes) {
+      return [
+        ...pasosComunes,
+        {
+          target: '.tour-search-bar',
+          title: 'Búsqueda de pacientes',
+          content: 'Filtra rápidamente por nombre del paciente o ID del dispositivo.',
+        },
+        {
+          target: '.tour-sort-buttons',
+          title: 'Ordenamiento de pacientes',
+          content: 'Organiza tu lista de pacientes por nombre, edad o geocercas asignadas.',
+        },
+        {
+          target: '.tour-patient-card-0', // Apunta al primer paciente real
+          title: 'Tarjeta del paciente',
+          content: 'Los iconos te alertarán sobre caídas, desconexiones, inactividad y signos vitales anormales.',
+        },
+        {
+          target: '.tour-patient-actions-0',
+          title: 'Configuración individual',
+          content: 'Entra aquí para ver el historial médico, gráficas y dibujar las geocercas de este paciente.',
+        },
+        {
+          target: '.tour-device-status-0',
+          title: 'Dispositivo',
+          content: 'Gestiona, asigna o libera el dispositivo asociado.',
+        },
+        {
+          target: '.tour-add-fab',
+          title: 'Agregar otro paciente',
+          content: 'Usa este botón flotante para registrar nuevos pacientes en cualquier momento.',
+        },
+      ];
+    }
+
+    // 3. Escenario B: NO HAY PACIENTES (Tutorial de Bienvenida / Onboarding)
+    else {
+      return [
+        ...pasosComunes,
+        {
+          target: '.tour-empty-state', // Apuntaremos al texto de "No hay pacientes"
+          title: 'Lista de pacientes',
+          content: 'Actualmente tu lista está vacía. Aquí aparecerán las personas que cuidas una vez que las registres.',
+          placement: 'center',
+        },
+        {
+          target: '.tour-add-fab',
+          title: '¡Comencemos!',
+          content: 'Haz clic en este botón para registrar a tu PRIMER PACIENTE ahora mismo.',
+          placement: 'top-end',
+        },
+      ];
+    }
+  }, [pacientes.length]); // Se recalcula si la lista cambia
+
+  const handleJoyrideCallback = (data) => {
+  const { action, index, status, type } = data;
+
+  if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+    setRunTour(false);
+    
+    if (pacientes.length > 0) {
+       localStorage.setItem('tour_dashboard_full_visto', 'true');
+    } else {
+       localStorage.setItem('tour_dashboard_empty_visto', 'true');
+    }
+  } 
+  
+  else if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
+    const nextStepIndex = index + (action === ACTIONS.PREV ? -1 : 1);
+    setStepIndex(nextStepIndex);
+  }
+};
+
+  // INICIAR TOUR AUTOMÁTICAMENTE (Si no se ha visto)
+  useEffect(() => {
+    if (currentView === 'pacientes' && !isLoadingAlertas) {
+      
+      const fullVisto = localStorage.getItem('tour_dashboard_full_visto');
+      const emptyVisto = localStorage.getItem('tour_dashboard_empty_visto');
+      const hayPacientes = pacientes.length > 0;
+
+      // Escenario 1: TIENE PACIENTES
+      if (hayPacientes) {
+        if (!fullVisto) {
+          if (emptyVisto) {
+            setStepIndex(5); 
+          } else {
+            setStepIndex(0);
+          }
+          
+          const timer = setTimeout(() => setRunTour(true), 1500);
+          return () => clearTimeout(timer);
+        }
+      } 
+      
+      else {
+        if (!emptyVisto) {
+          setStepIndex(0);
+          const timer = setTimeout(() => setRunTour(true), 1500);
+          return () => clearTimeout(timer);
+        }
+      }
+    }
+  }, [currentView, pacientes.length, isLoadingAlertas]);
 
   const cargarPacientes = useCallback(async () => {
     try {
@@ -538,7 +674,7 @@ export default function Dashboard() {
   const borrarCuenta = async () => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(`${API}}/api/cuidadores/${user._id}`, {
+      const res = await fetch(`${API}/api/cuidadores/${user._id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -557,7 +693,7 @@ export default function Dashboard() {
           setPopup({ show: false, success: false, message: "" });
           logout();
           navigate("/");
-        }, 5000);
+        }, 3000);
       } else {
         setPopup({ show: true, type: 'error', message: "Error al eliminar la cuenta" });
         setTimeout(() => setPopup({ show: false, success: false, message: "" }), 5000);
@@ -780,8 +916,23 @@ export default function Dashboard() {
       >
         <div className="flex items-center space-x-3">
           <h1 className="text-2xl font-bold text-white hidden sm:block">Dashboard</h1>
+          <button
+            onClick={() => {
+              if (pacientes.length > 0) {
+                localStorage.removeItem('tour_dashboard_full_visto');
+              } else {
+                localStorage.removeItem('tour_dashboard_empty_visto');
+              }
+              setStepIndex(0);
+              setRunTour(true);
+            }}
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white font-bold text-sm transition-all border border-white/40"
+            title="Ver tutorial"
+          >
+            ?
+          </button>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 tour-views-controls">
           <button
             onClick={() => setCurrentView('mapa')}
             className={`relative ${currentView === 'mapa' ? 'text-white' : 'text-gray-300'} hover:text-white focus:outline-none`}
@@ -803,7 +954,7 @@ export default function Dashboard() {
             )}
           </button>
 
-          <div className="relative" ref={menuRef}>
+          <div className="relative tour-profile-menu" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
               className="flex items-center justify-center w-10 h-10 bg-white rounded-full text-gray-700 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-teal-500 transition-transform transform hover:scale-105"
@@ -845,7 +996,7 @@ export default function Dashboard() {
         {currentView === 'pacientes' && (
           <>
             <div className="bg-white rounded-xl shadow-2xl p-6 z-1 animate-zoom-in mb-6">
-              <div className="relative mb-6 max-w-lg mx-auto">
+              <div className="relative mb-6 max-w-lg mx-auto tour-search-bar">
                 <input
                   type="text"
                   value={filtroNombre}
@@ -858,7 +1009,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-center gap-2 mb-6">
+              <div className="flex items-center justify-center gap-2 mb-6 tour-sort-buttons">
                 <span className="text-sm font-medium text-gray-600">Ordenar por:</span>
                 <button
                   onClick={() => handleSort('nombre')}
@@ -896,10 +1047,10 @@ export default function Dashboard() {
               )}
 
               {pacientes.length === 0 ? (
-                <p className="text-center text-gray-500">Aún no has dado de alta pacientes.</p>
+                <p className="text-center text-gray-500 tour-empty-state">Aún no has dado de alta pacientes.</p>
               ) : (
                 <div className="space-y-4">
-                  {pacientesPaginados.map((p) => {
+                  {pacientesPaginados.map((p, index) => {
                     const datosRelevantes = ultimosDatos[p._id] || { ultimoDato: null, ultimoGpsValido: null };
                     const geocercasDelPaciente = geocercasCompletas[p._id] || [];
                     const ultimoDato = datosRelevantes.ultimoDato;
@@ -912,7 +1063,7 @@ export default function Dashboard() {
                     const statuses = getLocationStatus(datosRelevantes, geocercasDelPaciente, alertasDelPaciente);
 
                     return (
-                      <div key={p._id} className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-lg">
+                      <div key={p._id} className={`bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-lg ${index === 0 ? 'tour-patient-card-0' : ''}`}>
                         <div className="flex flex-col md:flex-row">
 
                           {/* --- Columna 1: Info Paciente --- */}
@@ -960,7 +1111,7 @@ export default function Dashboard() {
 
                           {/* --- Columna 2: Acciones --- */}
                           <div className="flex-shrink-0 bg-gray-50 md:w-72 border-t md:border-t-0 md:border-l border-gray-200">
-                            <div className="p-3 flex space-x-2">
+                            <div className={`p-3 flex space-x-2 ${index === 0 ? 'tour-patient-actions-0' : ''}`}>
                               <button
                                 onClick={() => abrirGeocerca(p)}
                                 className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
@@ -977,7 +1128,7 @@ export default function Dashboard() {
                             </div>
 
                             {/* --- SECCIÓN DISPOSITIVO --- */}
-                            <div className="border-t border-gray-200 px-3 pt-2 pb-3">
+                            <div className={`border-t border-gray-200 px-3 pt-2 pb-3 ${index === 0 ? 'tour-device-status-0' : ''}`}>
                               <h5 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Dispositivo</h5>
                               <div className="flex items-center justify-between min-h-[34px]">
                                 {p.dispositivo_id ? (
@@ -1089,7 +1240,7 @@ export default function Dashboard() {
 
       <button
         onClick={() => setAltaOpen(true)}
-        className="fixed bottom-8 right-8 z-50 w-16 h-16 bg-[#0F3D56] hover:bg-[#3A6EA5] text-white rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-teal-300 focus:ring-offset-2"
+        className="tour-add-fab fixed bottom-8 right-8 z-50 w-16 h-16 bg-[#0F3D56] hover:bg-[#3A6EA5] text-white rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-teal-300 focus:ring-offset-2"
         title="Dar de alta a un paciente"
       >
         <IconPlus />
@@ -1142,7 +1293,7 @@ export default function Dashboard() {
             setPopup({ show: true, type: 'error', message: e.message || "Error al refrescar geocercas" });
             setTimeout(() => setPopup({ show: false, success: false, message: "" }), 5000);
           } finally {
-            cerrarGeocerca();
+
           }
         }}
       />
@@ -1165,6 +1316,37 @@ export default function Dashboard() {
         isAsignando={isAsignando}
         idInput={dispositivoIdInput}
         onIdInputChange={(e) => setDispositivoIdInput(e.target.value)}
+      />
+
+      <Joyride
+        steps={tourSteps}
+        run={runTour}
+        stepIndex={stepIndex}
+        continuous={true}
+        showSkipButton={true}
+        showProgress={true}
+        callback={handleJoyrideCallback}
+        scrollOffset={100} // Para que el header no tape las tarjetas
+        disableScrollParentFix={true}
+        styles={{
+          options: {
+            primaryColor: '#0F3D56',
+            zIndex: 2000, // Z-Index alto para ganar al Header fijo
+          },
+          tooltipTitle: {
+            fontWeight: 'bold',
+            fontSize: '18px',
+            color: '#0F3D56',
+            textAlign: 'center',
+          },
+          tooltipContainer: {
+            textAlign: 'left',
+          },
+          buttonNext: {
+            backgroundColor: '#0F3D56',
+          }
+        }}
+        locale={{ back: 'Atrás', close: 'Cerrar', last: 'Finalizar', next: 'Siguiente', skip: 'Saltar' }}
       />
 
       {/* POPUP DE NOTIFICACIÓN */}
