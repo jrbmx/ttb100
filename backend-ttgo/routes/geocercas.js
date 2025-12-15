@@ -61,7 +61,13 @@ router.get('/:pacienteId', auth, async (req, res) => {
   */
   try {
     const { pacienteId } = req.params;
-    const docs = await Geocerca.find({ paciente: pacienteId, cuidador: req.user.id }).sort({ createdAt: 1 });
+
+    const filter = { paciente: pacienteId };
+    if (req.user.rol !== 'admin') {
+        filter.cuidador = req.user.id;
+    }
+
+    const docs = await Geocerca.find(filter).sort({ createdAt: 1 });
     res.json(docs); // <- array
   } catch (e) {
     console.error('geocerca GET:', e);
@@ -84,10 +90,8 @@ router.put('/:geocercaId', auth, async (req, res) => {
      }
   */
   try {
-    console.log('PUT /api/geocercas/:geocercaId - Iniciando actualización');
     const { geocercaId } = req.params;
     const { coords, nombre } = req.body;
-    console.log('Geocerca ID:', geocercaId, 'Coords:', coords, 'Nombre:', nombre);
     
     if (!Array.isArray(coords) || coords.length < 3) {
       return res.status(400).json({ mensaje: 'Coordenadas inválidas' });
@@ -126,9 +130,7 @@ router.delete('/:geocercaId', auth, async (req, res) => {
      #swagger.parameters['geocercaId'] = { description: 'ID de la geocerca' }
   */
   try {
-    console.log('DELETE /api/geocercas/:geocercaId - Iniciando eliminación');
     const { geocercaId } = req.params;
-    console.log('Geocerca ID a eliminar:', geocercaId);
     
     const geocerca = await Geocerca.findOneAndDelete({
       _id: geocercaId,
@@ -241,8 +243,6 @@ router.post('/verificar', async (req, res) => {
         mensaje: mensaje,
         vista: false // Nace como "no vista"
       });
-      
-      console.log(`ALERTA CREADA: ${mensaje}`);
     }
 
     res.json({ inside: estadoActual });

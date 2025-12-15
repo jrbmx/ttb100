@@ -1,6 +1,6 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './auth/AuthContext';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, AuthContext } from './auth/AuthContext';
 import ProtectedRoute from './auth/ProtectedRoute';
 import Home from './Home';
 import Dashboard from './Dashboard';
@@ -9,7 +9,25 @@ import Authentication from './cuidadores/Authentication';
 import ForgotPassword from './cuidadores/ForgotPassword';
 import ResetPassword from './cuidadores/ResetPassword';
 import PacienteDetalle from './pages/PacienteDetalle'; 
+import AdminDashboard from './pages/AdminDashboard';
 
+const AdminRoute = ({ children }) => {
+  const { user } = React.useContext(AuthContext);
+  
+  console.log("Usuario actual:", user); 
+  // -------------------------------
+
+  if (!user) return <Navigate to="/auth" replace />;
+  
+  // Verifica exactamente qué rol está leyendo
+  if (user.rol !== 'admin') {
+      console.log("Acceso denegado. Rol detectado:", user.rol);
+      return <Navigate to="/dashboard" replace />;
+  }
+
+  // Si es admin, déjalo pasar
+  return children;
+};
 
 function App() {
   return (
@@ -38,6 +56,15 @@ function App() {
               <ProtectedRoute>
                 <PacienteDetalle />
               </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
             }
           />
         </Routes>

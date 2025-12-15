@@ -8,6 +8,25 @@ function authHeaders() {
   };
 }
 
+export const obtenerPaciente = async (id) => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const response = await fetch(`${API}/api/pacientes/${id}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.mensaje || 'Error al obtener paciente');
+  }
+
+  return await response.json();
+};
+
+// Crear un nuevo paciente
 export async function crearPaciente(payload) {
   const res = await fetch(`${API}/api/pacientes`, {
     method: 'POST',
@@ -15,12 +34,7 @@ export async function crearPaciente(payload) {
     body: JSON.stringify(payload),
   });
   if (res.status === 401) {
-    localStorage.removeItem('token');
-    sessionStorage.removeItem('token');
-    localStorage.removeItem('cuidador');
-    sessionStorage.removeItem('cuidador');
-
-    window.location.href = '/auth'; 
+    handleAuthError();
     return [];
   }
   const data = await res.json().catch(() => ({}));
@@ -28,15 +42,11 @@ export async function crearPaciente(payload) {
   return data;
 }
 
+// Listar todos los pacientes
 export async function listarPacientes() {
   const res = await fetch(`${API}/api/pacientes`, { headers: authHeaders() });
   if (res.status === 401) {
-    localStorage.removeItem('token');
-    sessionStorage.removeItem('token');
-    localStorage.removeItem('cuidador');
-    sessionStorage.removeItem('cuidador');
-
-    window.location.href = '/auth'; 
+    handleAuthError();
     return [];
   }
   const data = await res.json().catch(() => ({}));
@@ -44,26 +54,22 @@ export async function listarPacientes() {
   return data;
 }
 
+// Obtener ubicación específica
 export async function mostrarUbicacionPaciente(pacienteId) {
   const res = await fetch(`${API}/api/pacientes/${pacienteId}/ubicacion`, {
     headers: authHeaders() 
   });
   if (res.status === 401) {
-    localStorage.removeItem('token');
-    sessionStorage.removeItem('token');
-    localStorage.removeItem('cuidador');
-    sessionStorage.removeItem('cuidador');
-
-    window.location.href = '/auth'; 
+    handleAuthError();
     return [];
   }
   const data = await res.json();
   if (!res.ok) throw new Error(data.mensaje || 'Error al obtener la ubicación');
-  return data; // { latitud, longitud, fecha }
+  return data; 
 }
 
-// Actualiza un paciente, usado para asignar o liberar dispositivos
-async function actualizarPaciente(pacienteId, payload) {
+// Actualizar datos generales de un paciente
+export async function actualizarPaciente(pacienteId, payload) {
   const res = await fetch(`${API}/api/pacientes/${pacienteId}`, {
     method: 'PUT',
     headers: authHeaders(),
@@ -71,12 +77,7 @@ async function actualizarPaciente(pacienteId, payload) {
   });
 
   if (res.status === 401) {
-    localStorage.removeItem('token');
-    sessionStorage.removeItem('token');
-    localStorage.removeItem('cuidador');
-    sessionStorage.removeItem('cuidador');
-
-    window.location.href = '/auth'; 
+    handleAuthError();
     return [];
   }
 
@@ -88,7 +89,27 @@ async function actualizarPaciente(pacienteId, payload) {
   return data;
 }
 
-// Llama a la actualización para setear dispositivo_id a un valor
+// Eliminar un paciente 
+export async function eliminarPaciente(pacienteId) {
+  const res = await fetch(`${API}/api/pacientes/${pacienteId}`, {
+    method: 'DELETE',
+    headers: authHeaders()
+  });
+
+  if (res.status === 401) {
+    handleAuthError();
+    return [];
+  }
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.mensaje || `Error ${res.status} al eliminar paciente`);
+  }
+  return data;
+}
+
+// Asignar dispositivo
 export async function asignarDispositivo(pacienteId, dispositivoId, alias) {
   if (!dispositivoId || dispositivoId.trim() === '') {
     throw new Error('El ID del dispositivo no puede estar vacío');
@@ -104,31 +125,27 @@ export async function asignarDispositivo(pacienteId, dispositivoId, alias) {
   });
 
   if (res.status === 401) {
-    localStorage.removeItem('token');
-    sessionStorage.removeItem('token');
-    localStorage.removeItem('cuidador');
-    sessionStorage.removeItem('cuidador');
-    window.location.href = '/auth'; 
+    handleAuthError();
     return [];
   }
 
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    // Aquí atrapamos el mensaje del backend (ej: "El dispositivo ya está asignado a Juan...")
     throw new Error(data.mensaje || `Error ${res.status} al asignar dispositivo`);
   }
   return data;
 }
 
-// Llama a la actualización para setear dispositivo_id a null
+// Liberar dispositivo 
 export async function liberarDispositivo(pacienteId) {
   return await actualizarPaciente(pacienteId, { 
-    dispositivo_id: null 
+    dispositivo_id: null,
+    dispositivo_alias: null 
   });
 }
 
-// Actualiza la configuración de alertas del paciente (umbrales)
+// Actualizar configuración de alertas (Umbrales)
 export async function actualizarConfiguracionPaciente(pacienteId, config) {
   const res = await fetch(`${API}/api/pacientes/${pacienteId}/config`, {
     method: 'PUT',
@@ -137,12 +154,7 @@ export async function actualizarConfiguracionPaciente(pacienteId, config) {
   });
 
   if (res.status === 401) {
-    localStorage.removeItem('token');
-    sessionStorage.removeItem('token');
-    localStorage.removeItem('cuidador');
-    sessionStorage.removeItem('cuidador');
-
-    window.location.href = '/auth'; 
+    handleAuthError();
     return [];
   }
 
@@ -154,8 +166,17 @@ export async function actualizarConfiguracionPaciente(pacienteId, config) {
   return data;
 }
 
+// Editar solo el alias del dispositivo
 export async function editarAliasDispositivo(pacienteId, nuevoAlias) {
   return await actualizarPaciente(pacienteId, { 
     dispositivo_alias: nuevoAlias 
   });
+}
+
+function handleAuthError() {
+  localStorage.removeItem('token');
+  sessionStorage.removeItem('token');
+  localStorage.removeItem('cuidador');
+  sessionStorage.removeItem('cuidador');
+  window.location.href = '/auth';
 }
