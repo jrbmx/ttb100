@@ -2,7 +2,7 @@ const API = process.env.REACT_APP_API_URL || 'https://api-ttgo-1080924017616.us-
 
 function authHeaders() {
   const headers = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   if (token) headers['Authorization'] = `Bearer ${token}`;
   return headers;
 }
@@ -13,6 +13,15 @@ export async function listarGeocercas(pacienteId) {
     method: 'GET',
     headers: authHeaders(),
   });
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+
+    window.location.href = '/auth';
+    return [];
+  }
   if (!res.ok) throw new Error('No se pudieron listar las geocercas');
   return res.json();
 }
@@ -24,6 +33,15 @@ export async function crearGeocerca(pacienteId, coords, nombre) {
     headers: authHeaders(),
     body: JSON.stringify({ pacienteId, coords, nombre }),
   });
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+
+    window.location.href = '/auth';
+    return [];
+  }
   if (!res.ok) throw new Error('No se pudo guardar la geocerca');
   return res.json();
 }
@@ -35,6 +53,15 @@ export async function actualizarGeocerca(geocercaId, coords, nombre) {
     headers: authHeaders(),
     body: JSON.stringify({ coords, nombre }),
   });
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+
+    window.location.href = '/auth';
+    return [];
+  }
   if (!res.ok) throw new Error('No se pudo actualizar la geocerca');
   return res.json();
 }
@@ -45,6 +72,15 @@ export async function eliminarGeocerca(geocercaId) {
     method: 'DELETE',
     headers: authHeaders(),
   });
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('cuidador');
+    sessionStorage.removeItem('cuidador');
+
+    window.location.href = '/auth';
+    return [];
+  }
   if (!res.ok) throw new Error('No se pudo eliminar la geocerca');
   return res.json();
 }

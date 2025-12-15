@@ -4,13 +4,14 @@ const router = express.Router();
 
 const Dato = require('../models/Dato');
 const Paciente = require('../models/Paciente');
+const Geocerca = require('../models/Geocerca')
+const Alerta = require('../models/Alerta')
 const auth     = require('../middleware/auth');
 
 // POST /api/pacientes  (alta)
-// body: { nombre, apellidoP, apellidoM, edad, dispositivo_id }
 router.post('/', auth, async (req, res) => {
   /* #swagger.tags = ['Pacientes']
-     #swagger.description = 'Registrar un nuevo paciente bajo el cuidado del usuario actual.'
+     #swagger.description = 'Registrar un nuevo paciente.'
      #swagger.security = [{ "bearerAuth": [] }]
      #swagger.parameters['body'] = {
         in: 'body',
@@ -20,30 +21,30 @@ router.post('/', auth, async (req, res) => {
             apellidoP: "Pérez",
             apellidoM: "López",
             edad: 75,
-            dispositivo_id: "a1b2c3d4-1678886400"
+            dispositivo_id: "A1B2C3",
+            dispositivo_alias: "Reloj de Papá"
         }
      }
-     #swagger.responses[201] = { description: 'Paciente registrado exitosamente' }
-     #swagger.responses[400] = { description: 'Faltan campos obligatorios' }
-     #swagger.responses[409] = { description: 'Conflicto: El ID del dispositivo ya está en uso por otro paciente.' }
   */
   try {
-    const { nombre, apellidoP, apellidoM, edad, dispositivo_id } = req.body;
+    const { nombre, apellidoP, apellidoM, edad, dispositivo_id, dispositivo_alias } = req.body;
+    
     if (!nombre || !apellidoP || !apellidoM || !edad) {
-      return res.status(400).json({ mensaje: 'Faltan campos' });
+      return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
     }
 
     const paciente = new Paciente({
       cuidador: req.user.id,
       nombre, apellidoP, apellidoM, edad,
-      dispositivo_id: dispositivo_id
+      dispositivo_id: dispositivo_id || null, 
+      dispositivo_alias: dispositivo_alias || null
     });
 
     try {
       await paciente.save();
     } catch (saveError) {
       if (saveError.code === 11000) {
-        return res.status(409).json({ mensaje: 'Error: El ID del dispositivo ya está registrado.' });
+        return res.status(409).json({ mensaje: 'Error: El ID del dispositivo ya está en uso por otro paciente.' });
       }
       throw saveError;
     }
@@ -62,8 +63,28 @@ router.get('/', auth, async (req, res) => {
      #swagger.security = [{ "bearerAuth": [] }]
      #swagger.responses[200] = { description: 'Lista de pacientes' }
   */
-  const items = await Paciente.find({ cuidador: req.user.id }).sort({ creadoEn: -1 });
-  res.json(items);
+  try {
+    const items = await Paciente.find({ cuidador: req.user.id }).sort({ creadoEn: -1 });
+    res.json(items);
+  } catch (e) {
+    res.status(500).json({ mensaje: 'Error al listar pacientes' });
+  }
+});
+
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const query = { _id: req.params.id };
+    if (req.user.rol !== 'admin') {
+        query.cuidador = req.user.id;
+    }
+
+    const paciente = await Paciente.findOne(query);
+    
+    if (!paciente) return res.status(404).json({ mensaje: 'Paciente no encontrado o acceso denegado' });
+    res.json(paciente);
+  } catch (e) {
+    res.status(500).json({ mensaje: 'Error obteniendo paciente' });
+  }
 });
 
 // GET /api/pacientes/:id/ubicacion (última ubicación del paciente)
@@ -85,7 +106,12 @@ router.get('/:id/ubicacion', auth, async (req, res) => {
   try {
     const pacienteId = req.params.id;
 
-    const paciente = await Paciente.findOne({ _id: pacienteId, cuidador: req.user.id });
+    const query = { _id: pacienteId };
+    if (req.user.rol !== 'admin') {
+       query.cuidador = req.user.id;
+    }
+
+    const paciente = await Paciente.findOne(query);
     if (!paciente) {
       return res.status(404).json({ mensaje: 'Paciente no encontrado o no autorizado' });
     }
@@ -104,7 +130,7 @@ router.get('/:id/ubicacion', auth, async (req, res) => {
         fecha: ultimoDato.fecha,
     });
   } catch (error) {
-    console.error('Error obteniendo ubicación:', error);
+    console.error('Error ubicacion:', error);
     res.status(500).json({ mensaje: 'Error del servidor' });
   }
 });
@@ -120,7 +146,7 @@ router.put('/:id', auth, async (req, res) => {
         schema: {
             nombre: "Juanito",
             edad: 76,
-            dispositivo_id: "nuevo-id-o-null"
+            dispositivo_alias: "nuevo-id-o-null"
         }
      }
      #swagger.responses[200] = { description: 'Paciente actualizado' }
@@ -153,8 +179,28 @@ router.delete('/:id', auth, async (req, res) => {
      #swagger.parameters['id'] = { description: 'ID del paciente' }
      #swagger.responses[200] = { description: 'Eliminado correctamente' }
   */
-  await Paciente.findOneAndDelete({ _id: req.params.id, cuidador: req.user.id });
-  res.json({ ok: true });
+  try {
+    const pacienteId = req.params.id;
+    const cuidadorId = req.user.id;
+
+    const paciente = await Paciente.findOne({ _id: pacienteId, cuidador: cuidadorId });
+    if (!paciente) {
+      return res.status(404).json({ mensaje: 'Paciente no encontrado' });
+    }
+
+    await Promise.all([
+      Geocerca.deleteMany({ paciente: pacienteId }), // Borrar zonas
+      Dato.deleteMany({ paciente: pacienteId }),     // Borrar historial de sensores
+      Alerta.deleteMany({ paciente: pacienteId }),   // Borrar alertas
+      Paciente.deleteOne({ _id: pacienteId })        // borrar al paciente
+    ]);
+
+    res.json({ ok: true, mensaje: 'Paciente y todos sus datos eliminados correctamente.' });
+
+  } catch (e) {
+    console.error("Error eliminando paciente:", e);
+    res.status(500).json({ mensaje: 'Error del servidor al eliminar paciente' });
+  }
 });
 
 // PUT /api/pacientes/:id/config (Actualizar configuración de alertas)
@@ -214,6 +260,78 @@ router.put('/:id/config', auth, async (req, res) => {
     console.error('Error al actualizar configuración:', e);
     res.status(500).json({ mensaje: 'Error del servidor al guardar configuración' });
   }
+});
+
+// PUT /api/pacientes/:id/asignar
+// Asigna un dispositivo y su alias. SI YA EXISTE en otro paciente, se lo quita automáticamente.
+router.put('/:id/asignar', auth, async (req, res) => {
+    /* #swagger.tags = ['Pacientes']
+       #swagger.description = 'Vincula un dispositivo al paciente. Si otro paciente lo tenía, se desvincula automáticamente.'
+       #swagger.parameters['body'] = {
+          in: 'body',
+          required: true,
+          schema: {
+              dispositivo_id: "A1B2C3",
+              dispositivo_alias: "Reloj Nuevo"
+          }
+       }
+    */
+    try {
+        const { dispositivo_id, dispositivo_alias } = req.body;
+        const pacienteId = req.params.id;
+
+        if (!dispositivo_id) return res.status(400).json({ mensaje: "Falta el ID del dispositivo" });
+
+        const pacienteConDispositivo = await Paciente.findOne({ dispositivo_id });
+
+        if (pacienteConDispositivo && pacienteConDispositivo._id.toString() !== pacienteId) {
+            return res.status(409).json({ 
+                mensaje: `El dispositivo ya está asignado a ${pacienteConDispositivo.nombre} ${pacienteConDispositivo.apellidoP}. Debes liberarlo primero.` 
+            });
+        }
+
+        const pacienteActual = await Paciente.findOneAndUpdate(
+            { _id: pacienteId, cuidador: req.user.id },
+            { 
+                dispositivo_id, 
+                dispositivo_alias: dispositivo_alias || "Dispositivo" 
+            },
+            { new: true }
+        );
+
+        if (!pacienteActual) return res.status(404).json({ mensaje: "Paciente no encontrado" });
+
+        res.json({ ok: true, paciente: pacienteActual, mensaje: "Dispositivo vinculado correctamente" });
+
+    } catch (e) {
+        console.error("Error al asignar:", e);
+        res.status(500).json({ mensaje: "Error al vincular dispositivo" });
+    }
+});
+
+// PUT /api/pacientes/:id/liberar
+// Quita el dispositivo del paciente
+router.put('/:id/liberar', auth, async (req, res) => {
+    /* #swagger.tags = ['Pacientes']
+       #swagger.description = 'Desvincula el dispositivo del paciente.'
+    */
+    try {
+        const paciente = await Paciente.findOneAndUpdate(
+            { _id: req.params.id, cuidador: req.user.id },
+            { 
+                dispositivo_id: null, 
+                dispositivo_alias: null 
+            },
+            { new: true }
+        );
+
+        if (!paciente) return res.status(404).json({ mensaje: "Paciente no encontrado" });
+        res.json({ ok: true, paciente, mensaje: "Dispositivo liberado" });
+
+    } catch (e) {
+        console.error("Error al liberar:", e);
+        res.status(500).json({ mensaje: "Error al liberar dispositivo" });
+    }
 });
 
 module.exports = router;

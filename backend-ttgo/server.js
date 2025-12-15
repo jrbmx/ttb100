@@ -14,6 +14,7 @@ const cuidadoresRoutes = require('./routes/cuidadores');
 const pacientesRoutes  = require('./routes/pacientes');
 const geocercasRoutes = require('./routes/geocercas');
 const alertasRoutes = require('./routes/alertas')
+const adminRoutes = require('./routes/admin')
 const app = express();
 
 // ---------- CORS (Express 5: sin usar '*') ----------
@@ -58,6 +59,7 @@ app.use('/api/cuidadores', cuidadoresRoutes);
 app.use('/api/pacientes', pacientesRoutes);
 app.use('/api/geocercas', geocercasRoutes); 
 app.use('/api/alertas', alertasRoutes); 
+app.use('/api/admin', adminRoutes);
 
 // ---------- Arranque ----------
 const PORT = process.env.PORT || 3000;

@@ -168,7 +168,6 @@ router.post('/', async (req, res) => {
       // Guardar todas las alertas generadas
       if (alertasAGenerar.length > 0) {
         await Alerta.insertMany(alertasAGenerar);
-        console.log(`Alertas generadas para ${paciente.nombre}:`, alertasAGenerar.length);
       }
     }
 
@@ -251,7 +250,12 @@ router.get('/reciente/:pacienteId', auth, async (req, res) => {
     try {
         const { pacienteId } = req.params;
 
-        const paciente = await Paciente.findOne({ _id: pacienteId, cuidador: req.user.id });
+        const query = { _id: pacienteId };
+        if (req.user.rol !== 'admin') {
+            query.cuidador = req.user.id;
+        }
+
+        const paciente = await Paciente.findOne(query);
         if (!paciente) {
             return res.status(404).json({ mensaje: 'Paciente no encontrado o no autorizado' });
         }

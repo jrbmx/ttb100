@@ -5,7 +5,8 @@ import { AuthContext } from "./auth/AuthContext";
 import {
   listarPacientes,
   asignarDispositivo,
-  liberarDispositivo
+  liberarDispositivo,
+  editarAliasDispositivo
 } from "./services/pacientes";
 import { listarGeocercas } from "./services/geocercas";
 import { getDatosRelevantes } from "./services/datos";
@@ -15,12 +16,18 @@ import InfoCuidadorModal from "./components/InfoCuidadorModal.jsx";
 import DeleteConfirmModal from "./components/DeleteConfirmModal.jsx";
 import LiberarDispositivoModal from "./components/LiberarDispositivoModal.jsx";
 import AsignarDispositivoModal from "./components/AsignarDispositivoModal.jsx";
+import EditarAliasModal from "./components/EditarAliasModal.jsx";
 import NotificacionPopup from "./components/NotificacionPopup.jsx";
 import { listarAlertas } from "./services/alertas";
 import AlertasView from "./components/AlertasView.jsx";
 import MapaGeneralView from "./components/MapaGeneralView.jsx";
+import Joyride, { ACTIONS, EVENTS, STATUS } from 'react-joyride';
 
-
+const IconEdit = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+  </svg>
+);
 const IconDevice = () => (
   <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -33,14 +40,10 @@ const IconMapPin = () => (
   </svg>
 );
 const IconLink = () => (
-  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
-  </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 mr-1.5"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M9 15l6 -6" /><path d="M11 6l.463 -.536a5 5 0 0 1 7.072 0a4.993 4.993 0 0 1 -.001 7.072" /><path d="M12.603 18.534a5.07 5.07 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463" /><path d="M16 19h6" /><path d="M19 16v6" /></svg>
 );
 const IconUnlink = () => (
-  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244m-9.317 2.025a4.5 4.5 0 01-1.242-7.244l4.5-4.5a4.5 4.5 0 016.364 6.364l-1.757 1.757m-13.35.622l-1.757 1.757a4.5 4.5 0 006.364 6.364l4.5-4.5a4.5 4.5 0 00-1.242-7.244" />
-  </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 mr-1.5"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M17 22v-2" /><path d="M9 15l6 -6" /><path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464" /><path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463" /><path d="M20 17h2" /><path d="M2 7h2" /><path d="M7 2v2" /></svg>
 );
 const IconInfo = () => (
   <svg className="w-5 h-5 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -121,7 +124,7 @@ const IconBell = () => (
   </svg>
 );
 const IconMap = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-map-pin-2"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 18.5l-3 -1.5l-6 3v-13l6 -3l6 3l6 -3v7" /><path d="M9 4v13" /><path d="M15 7v5" /><path d="M21.121 20.121a3 3 0 1 0 -4.242 0c.418 .419 1.125 1.045 2.121 1.879c1.051 -.89 1.759 -1.516 2.121 -1.879z" /><path d="M19 18v.01" /></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon icon-tabler icons-tabler-outline icon-tabler-map-pin-2"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 18.5l-3 -1.5l-6 3v-13l6 -3l6 3l6 -3v7" /><path d="M9 4v13" /><path d="M15 7v5" /><path d="M21.121 20.121a3 3 0 1 0 -4.242 0c.418 .419 1.125 1.045 2.121 1.879c1.051 -.89 1.759 -1.516 2.121 -1.879z" /><path d="M19 18v.01" /></svg>
 );
 const IconSensorOff = () => (
   <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -129,16 +132,16 @@ const IconSensorOff = () => (
   </svg>
 );
 const IconBed = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="w-4 h-4 mr-1.5">
-    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 mr-1.5">
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
     <path d="M7 9m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
     <path d="M22 17v-3h-20" /><path d="M2 8v9" />
     <path d="M12 14h10v-2a3 3 0 0 0 -3 -3h-7v5z" />
-    </svg>
+  </svg>
 );
 const IconFall = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="w-5 h-5">
-    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
     <path d="M11 21l1 -5l-1 -4l-3 -4h4l3 -3" />
     <path d="M6 16l-1 -4l3 -4" />
     <path d="M6 5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
@@ -149,13 +152,12 @@ const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
 
 const ITEMS_PER_PAGE = 5;
+const API = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 
 
 const playAlertSound = () => {
   try {
     const playBeep = (startTime) => {
-      // --- ¡LA CLAVE ESTÁ AQUÍ! ---
-      // Creamos un *nuevo* oscilador y gainNode cada vez
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
 
@@ -262,6 +264,9 @@ export default function Dashboard() {
   const [pacienteParaAsignar, setPacienteParaAsignar] = useState(null);
   const [dispositivoIdInput, setDispositivoIdInput] = useState("");
   const [isAsignando, setIsAsignando] = useState(false);
+  const [showEditAlias, setShowEditAlias] = useState(false);
+  const [pacienteParaEditarAlias, setPacienteParaEditarAlias] = useState(null);
+  const [isGuardandoAlias, setIsGuardandoAlias] = useState(false);
 
   // === ESTADO PARA ALERTAS ===
   const [currentView, setCurrentView] = useState('pacientes'); // 'pacientes' o 'alertas'
@@ -269,6 +274,141 @@ export default function Dashboard() {
   const [isLoadingAlertas, setIsLoadingAlertas] = useState(true);
   const [unseenAlertsCount, setUnseenAlertsCount] = useState(0); // Para el "9+"
   const toastedAlertIds = useRef(new Set());
+
+  const [runTour, setRunTour] = useState(false);
+  const [stepIndex, setStepIndex] = useState(0);
+
+  const tourSteps = useMemo(() => {
+    const hayPacientes = pacientes.length > 0;
+
+    // 1. Pasos Comunes (Se muestran siempre)
+    const pasosComunes = [
+      {
+        target: 'body',
+        title: 'Bienvenido a tu panel de control',
+        content: 'Desde aquí podrás monitorear a todos tus pacientes, ver sus signos vitales y gestionar sus dispositivos.',
+        placement: 'center',
+        disableBeacon: true,
+      },
+      {
+        target: '.tour-views-controls',
+        title: 'Vistas y alertas',
+        content: 'Alterna entre la lista, el mapa general o revisa el historial de notificaciones desde esta barra.',
+      },
+      {
+        target: '.tour-profile-menu',
+        title: 'Tu perfil',
+        content: 'Aquí puedes actualizar tus datos o cerrar sesión.',
+      },
+    ];
+
+    // 2. Escenario A: SI HAY PACIENTES (Tutorial Completo)
+    if (hayPacientes) {
+      return [
+        ...pasosComunes,
+        {
+          target: '.tour-search-bar',
+          title: 'Búsqueda de pacientes',
+          content: 'Filtra rápidamente por nombre del paciente o ID del dispositivo.',
+        },
+        {
+          target: '.tour-sort-buttons',
+          title: 'Ordenamiento de pacientes',
+          content: 'Organiza tu lista de pacientes por nombre, edad o geocercas asignadas.',
+        },
+        {
+          target: '.tour-patient-card-0', // Apunta al primer paciente real
+          title: 'Tarjeta del paciente',
+          content: 'Los iconos te alertarán sobre caídas, desconexiones, inactividad y signos vitales anormales.',
+        },
+        {
+          target: '.tour-patient-actions-0',
+          title: 'Configuración individual',
+          content: 'Entra aquí para ver el historial médico, gráficas y dibujar las geocercas de este paciente.',
+        },
+        {
+          target: '.tour-device-status-0',
+          title: 'Dispositivo',
+          content: 'Gestiona, asigna o libera el dispositivo asociado.',
+        },
+        {
+          target: '.tour-add-fab',
+          title: 'Agregar otro paciente',
+          content: 'Usa este botón flotante para registrar nuevos pacientes en cualquier momento.',
+        },
+      ];
+    }
+
+    // 3. Escenario B: NO HAY PACIENTES (Tutorial de Bienvenida / Onboarding)
+    else {
+      return [
+        ...pasosComunes,
+        {
+          target: '.tour-empty-state', // Apuntaremos al texto de "No hay pacientes"
+          title: 'Lista de pacientes',
+          content: 'Actualmente tu lista está vacía. Aquí aparecerán las personas que cuidas una vez que las registres.',
+          placement: 'center',
+        },
+        {
+          target: '.tour-add-fab',
+          title: '¡Comencemos!',
+          content: 'Haz clic en este botón para registrar a tu PRIMER PACIENTE ahora mismo.',
+          placement: 'top-end',
+        },
+      ];
+    }
+  }, [pacientes.length]); // Se recalcula si la lista cambia
+
+  const handleJoyrideCallback = (data) => {
+  const { action, index, status, type } = data;
+
+  if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+    setRunTour(false);
+    
+    if (pacientes.length > 0) {
+       localStorage.setItem('tour_dashboard_full_visto', 'true');
+    } else {
+       localStorage.setItem('tour_dashboard_empty_visto', 'true');
+    }
+  } 
+  
+  else if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
+    const nextStepIndex = index + (action === ACTIONS.PREV ? -1 : 1);
+    setStepIndex(nextStepIndex);
+  }
+};
+
+  // INICIAR TOUR AUTOMÁTICAMENTE (Si no se ha visto)
+  useEffect(() => {
+    if (currentView === 'pacientes' && !isLoadingAlertas) {
+      
+      const fullVisto = localStorage.getItem('tour_dashboard_full_visto');
+      const emptyVisto = localStorage.getItem('tour_dashboard_empty_visto');
+      const hayPacientes = pacientes.length > 0;
+
+      // Escenario 1: TIENE PACIENTES
+      if (hayPacientes) {
+        if (!fullVisto) {
+          if (emptyVisto) {
+            setStepIndex(5); 
+          } else {
+            setStepIndex(0);
+          }
+          
+          const timer = setTimeout(() => setRunTour(true), 1500);
+          return () => clearTimeout(timer);
+        }
+      } 
+      
+      else {
+        if (!emptyVisto) {
+          setStepIndex(0);
+          const timer = setTimeout(() => setRunTour(true), 1500);
+          return () => clearTimeout(timer);
+        }
+      }
+    }
+  }, [currentView, pacientes.length, isLoadingAlertas]);
 
   const cargarPacientes = useCallback(async () => {
     try {
@@ -312,13 +452,13 @@ export default function Dashboard() {
 
   const { pacientesPaginados, totalPages } = useMemo(() => {
     const lowerFiltro = filtroNombre.toLowerCase();
-    
+
     const filtrados = filtroNombre
       ? pacientes.filter(p => {
-          const nombreCompleto = `${p.nombre} ${p.apellidoP} ${p.apellidoM}`.toLowerCase();
-          const idDispositivo = p.dispositivo_id ? p.dispositivo_id.toLowerCase() : '';
-          return nombreCompleto.includes(lowerFiltro) || idDispositivo.includes(lowerFiltro);
-        })
+        const nombreCompleto = `${p.nombre} ${p.apellidoP} ${p.apellidoM}`.toLowerCase();
+        const idDispositivo = p.dispositivo_id ? p.dispositivo_id.toLowerCase() : '';
+        return nombreCompleto.includes(lowerFiltro) || idDispositivo.includes(lowerFiltro);
+      })
       : [...pacientes];
 
     filtrados.sort((a, b) => {
@@ -390,7 +530,7 @@ export default function Dashboard() {
         const popupMessage = mostRecentAlert.mensaje;
 
         if (popupType === 'error' || popupType === 'warning') {
-           playAlertSound(); 
+          playAlertSound();
         }
 
         setPopup({
@@ -399,12 +539,11 @@ export default function Dashboard() {
           message: popupMessage
         });
         setTimeout(() => {
-            setPopup(prev => ({ ...prev, show: false }));
+          setPopup(prev => ({ ...prev, show: false }));
         }, 5000);
 
-        console.log("Alerta detectada, forzando refresco de datos.");
         if (popupType === 'error') {
-            cargarPacientes();
+          cargarPacientes();
         }
       }
 
@@ -434,7 +573,6 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       const intervalId = setInterval(() => {
-        console.log("Buscando nuevas alertas y refrescando datos de pacientes...");
         cargarAlertas();
         cargarPacientes();
       }, 30000); // 30 segundos
@@ -499,11 +637,22 @@ export default function Dashboard() {
 
   const actualizarInfo = async () => {
     try {
-      const res = await fetch(`https://api-ttgo-1080924017616.us-central1.run.app/api/cuidadores/${user._id}`, {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const res = await fetch(`${API}/api/cuidadores/${user._id}`, {
+      //const res = await fetch(`https://api-ttgo-1080924017616.us-central1.run.app/api/cuidadores/${user._id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(form)
       });
+
+      if (res.status === 401) {
+        logout();
+        navigate("/auth");
+        return;
+      }
 
       const updatedUser = await res.json();
       if (res.ok) {
@@ -512,20 +661,20 @@ export default function Dashboard() {
         setTimeout(() => {
           setPopup({ show: false, success: false, message: "" });
           setShowModal(false);
-        }, 3000);
+        }, 5000);
       } else {
         setPopup({ show: true, type: 'error', message: "Error al actualizar" });
-        setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
+        setTimeout(() => setPopup({ show: false, success: false, message: "" }), 5000);
       }
     } catch (err) {
       setPopup({ show: true, type: 'error', message: "Error de red" });
-      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 5000);
     }
   };
 
   const borrarCuenta = async () => {
     try {
-      const res = await fetch(`https://api-ttgo-1080924017616.us-central1.run.app/api/cuidadores/${user._id}`, {
+      const res = await fetch(`http://localhost:3000/api/cuidadores/${user._id}`, {
         method: "DELETE"
       });
       if (res.ok) {
@@ -537,11 +686,11 @@ export default function Dashboard() {
         }, 3000);
       } else {
         setPopup({ show: true, type: 'error', message: "Error al eliminar la cuenta" });
-        setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
+        setTimeout(() => setPopup({ show: false, success: false, message: "" }), 5000);
       }
     } catch (err) {
       setPopup({ show: true, type: 'error', message: "Error de red" });
-      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 5000);
     }
   };
 
@@ -582,11 +731,11 @@ export default function Dashboard() {
       await liberarDispositivo(pacienteParaLiberar._id);
       handleCancelarLiberar();
       setPopup({ show: true, type: 'info', message: "Dispositivo liberado" });
-      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 5000);
       await cargarPacientes();
     } catch (e) {
       setPopup({ show: true, type: 'error', message: e.message });
-      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 5000);
     } finally {
       setIsLiberando(false);
     }
@@ -606,21 +755,48 @@ export default function Dashboard() {
     setDispositivoIdInput("");
   };
 
-  /* Confirma y ejecuta la asignación del dispositivo */
-  const handleConfirmarAsignar = async () => {
-    if (isAsignando || !dispositivoIdInput.trim()) return;
+  const handleConfirmarAsignar = async (id, alias) => {
+    if (isAsignando || !id) return;
+
     setIsAsignando(true);
     try {
-      await asignarDispositivo(pacienteParaAsignar._id, dispositivoIdInput);
+      await asignarDispositivo(pacienteParaAsignar._id, id, alias);
+
       handleCancelarAsignar();
-      setPopup({ show: true, type: 'info', message: "Dispositivo asignado" });
-      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
+      setPopup({ show: true, type: 'info', message: "Dispositivo asignado correctamente" });
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 5000);
+
       await cargarPacientes();
+
     } catch (e) {
       setPopup({ show: true, type: 'error', message: e.message });
-      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
+      setTimeout(() => setPopup({ show: false, success: false, message: "" }), 5000);
     } finally {
       setIsAsignando(false);
+    }
+  };
+
+  // Abrir modal
+  const handleEditAliasClick = (paciente) => {
+    setPacienteParaEditarAlias(paciente);
+    setShowEditAlias(true);
+  };
+
+  // Confirmar guardado
+  const handleConfirmarAlias = async (nuevoAlias) => {
+    if (isGuardandoAlias || !pacienteParaEditarAlias) return;
+    setIsGuardandoAlias(true);
+    try {
+      await editarAliasDispositivo(pacienteParaEditarAlias._id, nuevoAlias);
+      setPopup({ show: true, type: 'info', message: "Alias actualizado" });
+      setShowEditAlias(false);
+      setPacienteParaEditarAlias(null);
+      await cargarPacientes(); // Refrescar lista
+    } catch (e) {
+      setPopup({ show: true, type: 'error', message: "Error al actualizar alias" });
+    } finally {
+      setIsGuardandoAlias(false);
+      setTimeout(() => setPopup(prev => ({ ...prev, show: false })), 5000);
     }
   };
 
@@ -643,20 +819,20 @@ export default function Dashboard() {
       return [{ status: "Sin ubicación", icon: IconLocationOff, color: "text-gray-400" }];
     }
 
-    const MINUTOS_MEMORIA = 60; 
+    const MINUTOS_MEMORIA = 60;
     const ahora = new Date();
 
     const alertaCaidaReciente = alertasDelPaciente.find(a => {
-        const fechaAlerta = new Date(a.createdAt);
-        const diffMins = (ahora - fechaAlerta) / 1000 / 60;
-        return a.tipo === 'caida' && diffMins < MINUTOS_MEMORIA && !a.vista;
+      const fechaAlerta = new Date(a.createdAt);
+      const diffMins = (ahora - fechaAlerta) / 1000 / 60;
+      return a.tipo === 'caida' && diffMins < MINUTOS_MEMORIA && !a.vista;
     });
 
     if (ultimoDato.caida_detectada === true || alertaCaidaReciente) {
-      statuses.push({ 
-        status: "¡CAÍDA DETECTADA!", 
+      statuses.push({
+        status: "¡CAÍDA DETECTADA!",
         icon: IconFall,
-        color: "text-red-700 font-bold" 
+        color: "text-red-700 font-bold"
       });
     }
 
@@ -730,8 +906,23 @@ export default function Dashboard() {
       >
         <div className="flex items-center space-x-3">
           <h1 className="text-2xl font-bold text-white hidden sm:block">Dashboard</h1>
+          <button
+            onClick={() => {
+              if (pacientes.length > 0) {
+                localStorage.removeItem('tour_dashboard_full_visto');
+              } else {
+                localStorage.removeItem('tour_dashboard_empty_visto');
+              }
+              setStepIndex(0);
+              setRunTour(true);
+            }}
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white font-bold text-sm transition-all border border-white/40"
+            title="Ver tutorial"
+          >
+            ?
+          </button>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 tour-views-controls">
           <button
             onClick={() => setCurrentView('mapa')}
             className={`relative ${currentView === 'mapa' ? 'text-white' : 'text-gray-300'} hover:text-white focus:outline-none`}
@@ -753,7 +944,7 @@ export default function Dashboard() {
             )}
           </button>
 
-          <div className="relative" ref={menuRef}>
+          <div className="relative tour-profile-menu" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
               className="flex items-center justify-center w-10 h-10 bg-white rounded-full text-gray-700 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-teal-500 transition-transform transform hover:scale-105"
@@ -774,7 +965,7 @@ export default function Dashboard() {
                     className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 w-full text-left"
                   >
                     <IconInfo />
-                    Mi Información
+                    Mi información
                   </button>
                   <button
                     onClick={() => { setMenuOpen(false); handleLogout(); }}
@@ -795,7 +986,7 @@ export default function Dashboard() {
         {currentView === 'pacientes' && (
           <>
             <div className="bg-white rounded-xl shadow-2xl p-6 z-1 animate-zoom-in mb-6">
-              <div className="relative mb-6 max-w-lg mx-auto">
+              <div className="relative mb-6 max-w-lg mx-auto tour-search-bar">
                 <input
                   type="text"
                   value={filtroNombre}
@@ -808,7 +999,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-center gap-2 mb-6">
+              <div className="flex items-center justify-center gap-2 mb-6 tour-sort-buttons">
                 <span className="text-sm font-medium text-gray-600">Ordenar por:</span>
                 <button
                   onClick={() => handleSort('nombre')}
@@ -846,23 +1037,23 @@ export default function Dashboard() {
               )}
 
               {pacientes.length === 0 ? (
-                <p className="text-center text-gray-500">Aún no has dado de alta pacientes.</p>
+                <p className="text-center text-gray-500 tour-empty-state">Aún no has dado de alta pacientes.</p>
               ) : (
                 <div className="space-y-4">
-                  {pacientesPaginados.map((p) => {
+                  {pacientesPaginados.map((p, index) => {
                     const datosRelevantes = ultimosDatos[p._id] || { ultimoDato: null, ultimoGpsValido: null };
                     const geocercasDelPaciente = geocercasCompletas[p._id] || [];
                     const ultimoDato = datosRelevantes.ultimoDato;
 
                     const alertasDelPaciente = alertas.filter(alerta => {
-                      const idEnAlerta = alerta.paciente._id || alerta.paciente; 
+                      const idEnAlerta = alerta.paciente._id || alerta.paciente;
                       return idEnAlerta === p._id;
                     });
 
                     const statuses = getLocationStatus(datosRelevantes, geocercasDelPaciente, alertasDelPaciente);
 
                     return (
-                      <div key={p._id} className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-lg">
+                      <div key={p._id} className={`bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden transition-all hover:shadow-lg ${index === 0 ? 'tour-patient-card-0' : ''}`}>
                         <div className="flex flex-col md:flex-row">
 
                           {/* --- Columna 1: Info Paciente --- */}
@@ -876,7 +1067,7 @@ export default function Dashboard() {
                               </span>
                             </div>
 
-                            <div className="mt-2 space-y-1">
+                            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                               {statuses.map((status, index) => (
                                 <div key={index} className={`text-sm font-medium flex items-center ${status.color}`}>
                                   <status.icon />
@@ -910,7 +1101,7 @@ export default function Dashboard() {
 
                           {/* --- Columna 2: Acciones --- */}
                           <div className="flex-shrink-0 bg-gray-50 md:w-72 border-t md:border-t-0 md:border-l border-gray-200">
-                            <div className="p-3 flex space-x-2">
+                            <div className={`p-3 flex space-x-2 ${index === 0 ? 'tour-patient-actions-0' : ''}`}>
                               <button
                                 onClick={() => abrirGeocerca(p)}
                                 className="flex-1 text-sm flex items-center justify-center px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
@@ -927,19 +1118,39 @@ export default function Dashboard() {
                             </div>
 
                             {/* --- SECCIÓN DISPOSITIVO --- */}
-                            <div className="border-t border-gray-200 px-3 pt-2 pb-3">
+                            <div className={`border-t border-gray-200 px-3 pt-2 pb-3 ${index === 0 ? 'tour-device-status-0' : ''}`}>
                               <h5 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Dispositivo</h5>
-                              <div className="flex items-center justify-between min-h-[34px]"> {/* Altura mínima para evitar saltos */}
+                              <div className="flex items-center justify-between min-h-[34px]">
                                 {p.dispositivo_id ? (
-                                  // -- Caso 1: Dispositivo ASIGNADO --
                                   <>
-                                    <span className="text-sm font-medium bg-gray-200 text-gray-800 px-2 py-1 rounded-md flex items-center overflow-hidden">
-                                      <IconDevice />
-                                      <span className="truncate" title={p.dispositivo_id}>{p.dispositivo_id}</span>
-                                    </span>
+                                    <div className="flex flex-col min-w-0 mr-2 relative group">
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className="text-sm font-bold text-teal-800 truncate cursor-default"
+                                          title={`ID MAC: ${p.dispositivo_id}`}
+                                        >
+                                          {p.dispositivo_alias || "Sin nombre"}
+                                        </span>
+
+                                        <button
+                                          onClick={() => handleEditAliasClick(p)}
+                                          className="text-gray-400 hover:text-teal-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+                                          title="Editar nombre"
+                                        >
+                                          <IconEdit />
+                                        </button>
+                                      </div>
+
+                                      <span className="text-[10px] text-gray-400 font-mono flex items-center">
+                                        <IconDevice />
+                                        {p.dispositivo_id}
+                                      </span>
+                                    </div>
+
                                     <button
                                       onClick={() => handleLiberarClick(p)}
-                                      className="text-sm flex items-center px-3 py-1.5 rounded-md bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 transition-colors"
+                                      className="text-xs flex items-center px-2 py-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors border border-red-100"
+                                      title="Liberar dispositivo"
                                     >
                                       <IconUnlink />
                                       Liberar
@@ -948,10 +1159,10 @@ export default function Dashboard() {
                                 ) : (
                                   // -- Caso 2: Dispositivo NO asignado --
                                   <>
-                                    <span className="text-sm italic text-gray-500">No asignado</span>
+                                    <span className="text-sm italic text-gray-400">No asignado</span>
                                     <button
                                       onClick={() => handleAsignarClick(p)}
-                                      className="text-sm flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm"
+                                      className="text-sm flex items-center px-3 py-1.5 rounded-md bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-sm"
                                     >
                                       <IconLink />
                                       Asignar
@@ -1019,7 +1230,7 @@ export default function Dashboard() {
 
       <button
         onClick={() => setAltaOpen(true)}
-        className="fixed bottom-8 right-8 z-50 w-16 h-16 bg-[#0F3D56] hover:bg-[#3A6EA5] text-white rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-teal-300 focus:ring-offset-2"
+        className="tour-add-fab fixed bottom-8 right-8 z-50 w-16 h-16 bg-[#0F3D56] hover:bg-[#3A6EA5] text-white rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-teal-300 focus:ring-offset-2"
         title="Dar de alta a un paciente"
       >
         <IconPlus />
@@ -1067,12 +1278,12 @@ export default function Dashboard() {
               setGeofenceCounts(m => ({ ...m, [pacienteSeleccionado._id]: Array.isArray(g) ? g.length : 0 }));
             }
             setPopup({ show: true, type: 'info', message: "Geocerca(s) guardada(s)" });
-            setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
+            setTimeout(() => setPopup({ show: false, success: false, message: "" }), 5000);
           } catch (e) {
             setPopup({ show: true, type: 'error', message: e.message || "Error al refrescar geocercas" });
-            setTimeout(() => setPopup({ show: false, success: false, message: "" }), 3000);
+            setTimeout(() => setPopup({ show: false, success: false, message: "" }), 5000);
           } finally {
-            cerrarGeocerca();
+
           }
         }}
       />
@@ -1097,11 +1308,50 @@ export default function Dashboard() {
         onIdInputChange={(e) => setDispositivoIdInput(e.target.value)}
       />
 
+      <Joyride
+        steps={tourSteps}
+        run={runTour}
+        stepIndex={stepIndex}
+        continuous={true}
+        showSkipButton={true}
+        showProgress={true}
+        callback={handleJoyrideCallback}
+        scrollOffset={100} // Para que el header no tape las tarjetas
+        disableScrollParentFix={true}
+        styles={{
+          options: {
+            primaryColor: '#0F3D56',
+            zIndex: 2000, // Z-Index alto para ganar al Header fijo
+          },
+          tooltipTitle: {
+            fontWeight: 'bold',
+            fontSize: '18px',
+            color: '#0F3D56',
+            textAlign: 'center',
+          },
+          tooltipContainer: {
+            textAlign: 'left',
+          },
+          buttonNext: {
+            backgroundColor: '#0F3D56',
+          }
+        }}
+        locale={{ back: 'Atrás', close: 'Cerrar', last: 'Finalizar', next: 'Siguiente', skip: 'Saltar' }}
+      />
+
       {/* POPUP DE NOTIFICACIÓN */}
       <NotificacionPopup
         popup={popup}
         onClose={() => setPopup({ ...popup, show: false })}
         onClick={handleToastClick}
+      />
+
+      <EditarAliasModal
+        open={showEditAlias}
+        onClose={() => setShowEditAlias(false)}
+        onConfirm={handleConfirmarAlias}
+        paciente={pacienteParaEditarAlias}
+        isGuardando={isGuardandoAlias}
       />
 
       {/* estilos animaciones */}
