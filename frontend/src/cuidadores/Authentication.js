@@ -16,7 +16,6 @@ export default function Authentication() {
   
   // UI States
   const [isRightPanelActive, setIsRightPanelActive] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false); 
 
@@ -144,18 +143,31 @@ export default function Authentication() {
   return (
     <>
     <div className="auth-wrapper">
+      {/* --- BOTÓN DE REGRESO A LANDING PAGE --- */}
+      {/* --- BOTÓN DE INICIO (CASA) --- */}
       <div className="fixed top-5 left-5 z-[1100]">
-        <div className="relative">
-          <button onClick={() => setMenuOpen(!menuOpen)} className="p-2 bg-white rounded-md shadow focus:outline-none hover:text-[#00DDDD] transition">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
-          {menuOpen && (
-            <div className="absolute top-full left-0 mt-2 w-48 animate-slide-down bg-white border border-gray-200 rounded-md shadow-lg z-50">
-              <Link to="/infoExtra/acerca" className="block px-4 py-2 hover:bg-gray-50 text-gray-700">Acerca de</Link>
-              <Link to="/contacto" className="block px-4 py-2 hover:bg-gray-50 text-gray-700">Contacto</Link>
-            </div>
-          )}
-        </div>
+        <button 
+          onClick={() => navigate('/')} 
+          className="p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-md text-gray-600 hover:text-[#24E3D6] hover:shadow-lg transition-all duration-300 group flex items-center gap-2"
+          title="Volver al inicio"
+        >
+          {/* Icono Casa (Home) */}
+          <svg 
+            className="w-6 h-6 transform group-hover:scale-110 transition-transform duration-300" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth="2" 
+              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" 
+            />
+          </svg>
+          
+          <span className="hidden md:inline font-medium text-sm pr-1">Inicio</span>
+        </button>
       </div>
 
       <div className={`auth-container ${isRightPanelActive ? "right-panel-active" : ""} animate-appear`} id="container">

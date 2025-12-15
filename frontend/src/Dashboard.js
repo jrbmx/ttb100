@@ -21,6 +21,7 @@ import NotificacionPopup from "./components/NotificacionPopup.jsx";
 import { listarAlertas } from "./services/alertas";
 import AlertasView from "./components/AlertasView.jsx";
 import MapaGeneralView from "./components/MapaGeneralView.jsx";
+import logoImg from './logo.png';
 
 const IconEdit = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -775,12 +776,13 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#EEF6F8] pb-10">
       {/* HEADER */}
       <header
-        className="fixed top-0 left-0 w-full bg-[#0F3D56] py-4 shadow-lg flex justify-between items-center px-6 animate-fade-in"
+        className="fixed top-0 left-0 w-full bg-oscuro py-4 shadow-lg flex justify-between items-center px-6 animate-fade-in"
         style={{ zIndex: 1000 }}
       >
-        <div className="flex items-center space-x-3">
-          <h1 className="text-2xl font-bold text-white hidden sm:block">Dashboard</h1>
-        </div>
+        <div className="flex items-center gap-3 select-none">
+              <img src={logoImg} alt="Logo Overvak" className="w-8 h-8 md:w-10 md:h-10 object-contain" />
+              <span className="text-xl font-bold tracking-wid text-white">Overvak</span>
+            </div>
         <div className="flex items-center gap-4">
           <button
             onClick={() => setCurrentView('mapa')}

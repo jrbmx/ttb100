@@ -4,7 +4,7 @@ import { AuthProvider } from './auth/AuthContext';
 import ProtectedRoute from './auth/ProtectedRoute';
 import Home from './Home';
 import Dashboard from './Dashboard';
-import Acerca from './infoExtra/acerca';
+import Contacto from './Contacto';
 import Authentication from './cuidadores/Authentication';
 import ForgotPassword from './cuidadores/ForgotPassword';
 import ResetPassword from './cuidadores/ResetPassword';
@@ -17,7 +17,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/infoExtra/acerca" element={<Acerca />} />
+          <Route path="/contacto" element={<Contacto />} />
           <Route path="/auth" element={<Authentication />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
